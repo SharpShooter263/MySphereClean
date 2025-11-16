@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
+import 'home_screen.dart'; // ✅ YENİ: HomeScreen importu
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F3FF), // Açık morumsu arka plan
+      backgroundColor: const Color(0xFFF5F3FF),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF5F3FF),
         elevation: 0,
@@ -105,10 +106,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Şimdilik sadece tasarım, fonksiyon eklemedik
+                    // ✅ YENİ: Girişten sonra HomeScreen'e git
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HomeScreen(),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3F51B5), // Mavi/mor buton
+                    backgroundColor: const Color(0xFF3F51B5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
                     ),
