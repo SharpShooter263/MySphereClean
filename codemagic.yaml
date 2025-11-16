@@ -1,28 +1,52 @@
-workflows:
-  flutter-android:
-    name: Build Flutter Android
-    max_build_duration: 60
-    environment:
-      flutter: stable
-    scripts:
-      - name: Create Android folder if missing
-        script: |
-          if [ ! -d "android" ]; then
-            flutter create .
-          fi
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-      - name: Copy google-services.json
-        script: |
-          if [ -f "google-services.json" ]; then
-            echo "Moving google-services.json into android/app/"
-            cp google-services.json android/app/google-services.json
-          fi
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-      - name: Get dependencies
-        script: flutter pub get
+  // Manuel Firebase konfigürasyonları (google-services.json yerine)
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyAF0kljgHTOtLPbGbfIxIcEwd_N3dAXkpQ",
+      appId: "1:740712283120:android:ff55a85f1ba71be655fb35",
+      messagingSenderId: "740712283120",
+      projectId: "mysphereclean",
+      storageBucket: "mysphereclean.firebasestorage.app",
+    ),
+  );
 
-      - name: Build debug APK
-        script: flutter build apk --debug
-        
-    artifacts:
-      - build/app/outputs/flutter-apk/app-debug.apk
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'MySphereClean',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const LoginScreen(),
+    );
+  }
+}
+
+// BASİT GEÇİCİ LOGIN EKRANI
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Text(
+          "Firebase başarıyla bağlandı!",
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
