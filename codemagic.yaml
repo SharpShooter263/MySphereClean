@@ -1,17 +1,29 @@
 workflows:
-  flutter-android:
-    name: Build Flutter Android
+  android:
+    name: Build Android
+    max_build_duration: 60
     environment:
       flutter: stable
+
     scripts:
-      - name: Setup Flutter project
+      - name: Create android folder if missing
         script: |
-          flutter create .
-      - name: Get dependencies
+          if [ ! -d "android" ]; then
+            flutter create .
+          fi
+
+      - name: Ensure google-services.json is in correct place
         script: |
-          flutter pub get
+          if [ -f "google-services.json" ]; then
+            echo "Copying google-services.json to android/app/"
+            mkdir -p android/app
+            cp google-services.json android/app/google-services.json
+          else
+            echo "google-services.json NOT FOUND!"
+          fi
+
       - name: Build debug APK
-        script: |
-          flutter build apk --debug
+        script: flutter build apk --debug
+
     artifacts:
       - build/app/outputs/flutter-apk/app-debug.apk
