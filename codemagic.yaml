@@ -1,35 +1,51 @@
 workflows:
-  build-android:
+  flutter-android:
     name: Build Flutter Android
     max_build_duration: 60
     environment:
       flutter: stable
 
     scripts:
+      # 1) Android klasörü yoksa oluştur
       - name: Create Android folder if missing
         script: |
           if [ ! -d "android" ]; then
             flutter create .
           fi
 
-      - name: Get Flutter dependencies
+      # 2) google-services.json dosyasını android/app içine kopyala
+      - name: Copy google-services.json
+        script: |
+          if [ -f "google-services.json" ]; then
+            echo "Moving google-services.json into android/app/"
+            cp google-services.json android/app/google-services.json
+          else
+            echo "google-services.json not found!"
+          fi
+
+      # 3) applicationId değerini Firebase ile aynı yap
+      - name: Set applicationId
+        script: |
+          sed -i 's/applicationId "com.example.mysphereclean"/applicationId "com.sharpshooter26.mysphereclean"/' android/app/build.gradle
+
+      # 4) Flutter paketlerini indir
+      - name: Get dependencies
         script: |
           flutter pub get
 
-      - name: Copy google-services.json
+      # 5) Gradle dosyalarına Firebase eklentilerini ekle
+      - name: Enable Firebase Android setup
         script: |
-          echo "Checking google-services.json..."
-          if [ -f "google-services.json" ]; then
-            echo "google-services.json FOUND, copying..."
-            mkdir -p android/app
-            cp google-services.json android/app/google-services.json
-          else
-            echo "google-services.json NOT FOUND!"
-            exit 1
-          fi
+          echo "Applying Firebase dependencies to Gradle files..."
+          # Project-level build.gradle -> classpath ekle
+          sed -i 's/dependencies {/dependencies {\n        classpath "com.google.gms:google-services:4.4.2"/' android/build.gradle
+          # App-level build.gradle -> apply plugin ekle
+          sed -i 's/^apply plugin: "com.android.application"/apply plugin: "com.android.application"\napply plugin: "com.google.gms.google-services"/' android/app/build.gradle
 
+      # 6) APK oluştur
       - name: Build debug APK
-        script: flutter build apk --debug
+        script: |
+          flutter build apk --debug
 
     artifacts:
       - build/app/outputs/flutter-apk/app-debug.apk
