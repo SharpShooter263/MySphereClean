@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'links_screen.dart'; // ⬅️ YENİ: Linklerim ekranı
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,21 +31,16 @@ class _HomeScreenState extends State<HomeScreen> {
         userEmail = user.email ?? "";
       });
 
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection("users")
-            .doc(user.uid)
-            .get();
+      // Firestore'dan kullanıcı bilgilerini çek
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
 
-        if (snapshot.exists) {
-          final data = snapshot.data() as Map<String, dynamic>?;
-
-          setState(() {
-            userName = (data?["name"] ?? "") as String;
-          });
-        }
-      } catch (_) {
-        // Hata olursa şimdilik sessiz geçiyoruz
+      if (snapshot.exists) {
+        setState(() {
+          userName = snapshot["name"] ?? "";
+        });
       }
     }
   }
@@ -156,11 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 children: [
-                  // 🔹 PROFİLİM – ProfileScreen’e gider
+                  // Profilim kartı → Profil ekranına gider
                   buildMenuCard(
-                    Icons.person,
-                    "Profilim",
-                    "Bilgilerini düzenle",
+                    icon: Icons.person,
+                    title: "Profilim",
+                    subtitle: "Bilgilerini düzenle",
                     onTap: () {
                       Navigator.push(
                         context,
@@ -171,45 +167,38 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // 🔹 Linklerim – şimdilik placeholder
+                  // Linklerim kartı → Link ekranına gider
                   buildMenuCard(
-                    Icons.link,
-                    "Linklerim",
-                    "Sosyal medya ekle",
+                    icon: Icons.link,
+                    title: "Linklerim",
+                    subtitle: "Sosyal medya ekle",
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Linklerim ekranı yakında eklenecek."),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LinksScreen(),
                         ),
                       );
                     },
                   ),
 
-                  // 🔹 QR Paylaş – şimdilik placeholder
+                  // QR Paylaş (şimdilik boş, sonra dolduracağız)
                   buildMenuCard(
-                    Icons.qr_code,
-                    "QR Paylaş",
-                    "Profilini göster",
+                    icon: Icons.qr_code,
+                    title: "QR Paylaş",
+                    subtitle: "Profilini göster",
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("QR paylaşımı yakında eklenecek."),
-                        ),
-                      );
+                      // TODO: QR ekranı daha sonra
                     },
                   ),
 
-                  // 🔹 Ayarlar – şimdilik placeholder
+                  // Ayarlar (şimdilik boş)
                   buildMenuCard(
-                    Icons.settings,
-                    "Ayarlar",
-                    "Tercihleri düzenle",
+                    icon: Icons.settings,
+                    title: "Ayarlar",
+                    subtitle: "Tercihleri düzenle",
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Ayarlar ekranı yakında eklenecek."),
-                        ),
-                      );
+                      // TODO: Ayarlar ekranı daha sonra
                     },
                   ),
                 ],
@@ -257,12 +246,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ---- Widgetlar ---- //
+  // Özet kutusu (alt beyaz kutudaki sayılar)
+  static const TextStyle _summaryNumberStyle =
+      TextStyle(fontSize: 24, fontWeight: FontWeight.bold);
 
-  Widget buildMenuCard(
-    IconData icon,
-    String title,
-    String subtitle, {
+  static const TextStyle _summaryTitleStyle =
+      TextStyle(color: Colors.black54);
+
+  // Hızlı işlemler kartı
+  Widget buildMenuCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -289,10 +284,8 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               Text(
@@ -312,28 +305,15 @@ class _SummaryItem extends StatelessWidget {
   final String number;
   final String title;
 
-  const _SummaryItem({
-    super.key,
-    required this.number,
-    required this.title,
-  });
+  const _SummaryItem({required this.number, required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          number,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text(number, style: _HomeScreenState._summaryNumberStyle),
         const SizedBox(height: 4),
-        Text(
-          title,
-          style: const TextStyle(color: Colors.black54),
-        ),
+        Text(title, style: _HomeScreenState._summaryTitleStyle),
       ],
     );
   }
