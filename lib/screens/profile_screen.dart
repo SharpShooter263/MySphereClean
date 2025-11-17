@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {});
       }
     } catch (_) {
-      // Hata olursa sessiz geçiyoruz, istersen Snackbar ekleyebiliriz
+      // İstersen buraya Snackbar ile hata mesajı koyabiliriz.
     }
   }
 
@@ -64,15 +64,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'bio': bio,
       });
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil güncellendi.')),
       );
 
-      // Kaydettikten sonra bir önceki sayfaya dönebiliriz
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil güncellenemedi.')),
       );
@@ -87,177 +87,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final user = _auth.currentUser;
-    final email = user?.email ?? '';
-
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(color: colorScheme.onBackground),
-        title: Text(
-          'Profilim',
-          style: TextStyle(
-            color: colorScheme.onBackground,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bilgilerini düzenle',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onBackground,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Avatar
-            Center(
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
-                child: Text(
-                  _nameController.text.isNotEmpty
-                      ? _nameController.text[0].toUpperCase()
-                      : (email.isNotEmpty ? email[0].toUpperCase() : '?'),
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Ad Soyad
-            TextField(
-              controller: _nameController,
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: 'Ad Soyad',
-                labelStyle: TextStyle(
-                  color: colorScheme.onBackground.withOpacity(0.7),
-                ),
-                filled: true,
-                fillColor: theme.cardColor,
-                prefixIcon: Icon(
-                  Icons.person,
-                  color: colorScheme.primary,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              style: TextStyle(
-                color: colorScheme.onBackground,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // E-posta (salt okunur)
-            TextField(
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'E-posta',
-                labelStyle: TextStyle(
-                  color: colorScheme.onBackground.withOpacity(0.7),
-                ),
-                hintText: email,
-                hintStyle: TextStyle(
-                  color: colorScheme.onBackground.withOpacity(0.7),
-                ),
-                filled: true,
-                fillColor: theme.cardColor,
-                prefixIcon: Icon(
-                  Icons.email,
-                  color: colorScheme.primary,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              style: TextStyle(
-                color: colorScheme.onBackground,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Bio
-            TextField(
-              controller: _bioController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Hakkımda (isteğe bağlı)',
-                alignLabelWithHint: true,
-                labelStyle: TextStyle(
-                  color: colorScheme.onBackground.withOpacity(0.7),
-                ),
-                filled: true,
-                fillColor: theme.cardColor,
-                prefixIcon: Icon(
-                  Icons.info_outline,
-                  color: colorScheme.primary,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              style: TextStyle(
-                color: colorScheme.onBackground,
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // Kaydet butonu
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: _isSaving
-                    ? const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      )
-                    : const Text(
-                        'Kaydet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+    super
