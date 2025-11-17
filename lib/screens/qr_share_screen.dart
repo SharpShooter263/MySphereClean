@@ -9,15 +9,16 @@ class QRShareScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Tema renkleri
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(color: theme.colorScheme.onBackground),
+        elevation: 0,
+        iconTheme: IconThemeData(
+          color: theme.colorScheme.onBackground,
+        ),
         title: Text(
           "QR Paylaş",
           style: TextStyle(
@@ -30,43 +31,38 @@ class QRShareScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // KART ARKA PLANI ARTIK TEMA UYUMLU
+            // QR’i açık renk bir kartın içine aldık + arka planını beyaz yaptık
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.shadowColor.withOpacity(0.15),
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                  )
-                ],
+                color: isDark
+                    ? const Color(0xFF141414) // koyu gri kart
+                    : Colors.white,           // açık tema için beyaz kart
+                borderRadius: BorderRadius.circular(24),
               ),
               child: QrImageView(
                 data: profileUrl,
                 size: 220,
+                backgroundColor: Colors.white, // QR arkası her zaman beyaz
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              "Bu QR kodu okutarak MySphere profilini açabilirler.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.colorScheme.onBackground.withOpacity(0.7),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                "Bu QR kodu okutarak MySphere profilini açabilirler.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+                ),
               ),
             ),
           ],
         ),
       ),
-
-      // PAYLAŞ BUTONU
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
+        backgroundColor: const Color(0xFF6A4ECF),
+        foregroundColor: Colors.white,
         onPressed: () {
           Share.share(
             profileUrl,
@@ -74,7 +70,6 @@ class QRShareScreen extends StatelessWidget {
           );
         },
         label: const Text("Linki Paylaş"),
-        icon: const Icon(Icons.share),
       ),
     );
   }
