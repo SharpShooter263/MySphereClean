@@ -17,7 +17,10 @@ dependencies:
   # 🔥 Firebase paketleri
   firebase_core: ^3.10.0
   firebase_auth: ^5.3.1
-  cloud_firestore: ^5.4.4   # Firestore (uyumlu sürüm)
+  cloud_firestore: ^5.4.4   # Firestore
+
+  # 🌐 Linke tıklayınca tarayıcı açmak için
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
