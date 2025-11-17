@@ -55,11 +55,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final String uid = cred.user!.uid;
 
-      // 2) Firestore'a kullanıcı kaydı
+      // 2) Firestore'a kullanıcı kaydı + varsayılan ayarlar
       await _firestore.collection("users").doc(uid).set({
         "name": name,
         "email": email,
         "createdAt": FieldValue.serverTimestamp(),
+        "bio": "",
+        "links": [],
+        "views": 0,
+        "shares": 0,
+        "notificationsEnabled": true,
+        "darkMode": false,
       });
 
       _showMessage("Kayıt başarılı!");
@@ -86,14 +92,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
   }
 
   @override
