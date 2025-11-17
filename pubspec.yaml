@@ -17,13 +17,10 @@ dependencies:
   # 🔥 Firebase paketleri
   firebase_core: ^3.10.0
   firebase_auth: ^5.3.1
-  cloud_firestore: ^5.4.4
+  cloud_firestore: ^5.4.4   # Firestore
 
-  # 🔳 QR kod paketi
-  qr_flutter: ^4.1.0
-
-  # 📤 Link paylaşma paketi
-  share_plus: ^10.0.0
+  # 🌐 Link açmak için
+  url_launcher: ^6.1.10
 
 dev_dependencies:
   flutter_test:
