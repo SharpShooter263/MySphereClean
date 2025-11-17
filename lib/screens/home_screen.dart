@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 import 'links_screen.dart';
+import 'settings_screen.dart';
+import 'qr_share_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,35 +40,25 @@ class _HomeScreenState extends State<HomeScreen> {
           .get();
 
       if (snapshot.exists) {
-        final data = snapshot.data() as Map<String, dynamic>;
         setState(() {
-          userName = (data["name"] ?? "") as String;
+          userName = (snapshot.data() as Map<String, dynamic>)["name"] ?? "";
         });
       }
     }
   }
 
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final User? user = FirebaseAuth.instance.currentUser;
-
-    // Her ihtimale karşı: kullanıcı yoksa login ekranına dön.
-    if (user == null) {
-      return Scaffold(
-        body: Center(
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            },
-            child: const Text("Oturum aç"),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFFF3EFFC),
       appBar: AppBar(
@@ -83,15 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.black87),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
-              }
-            },
+            onPressed: _logout,
           ),
         ],
       ),
@@ -170,9 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 children: [
-                  // Profilim
-                  GestureDetector(
-                    onTap: () {
+                  buildMenuCard(
+                    Icons.person,
+                    "Profilim",
+                    "Bilgilerini düzenle",
+                    () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -180,16 +166,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       );
                     },
-                    child: buildMenuCard(
-                      Icons.person,
-                      "Profilim",
-                      "Bilgilerini düzenle",
-                    ),
                   ),
-
-                  // Linklerim
-                  GestureDetector(
-                    onTap: () {
+                  buildMenuCard(
+                    Icons.link,
+                    "Linklerim",
+                    "Sosyal medya ekle",
+                    () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -197,45 +179,32 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       );
                     },
-                    child: buildMenuCard(
-                      Icons.link,
-                      "Linklerim",
-                      "Sosyal medya ekle",
-                    ),
                   ),
-
-                  // QR Paylaş (şimdilik sadece bilgi veriyoruz)
-                  GestureDetector(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text("QR paylaşım özelliği yakında eklenecek."),
+                  buildMenuCard(
+                    Icons.qr_code,
+                    "QR Paylaş",
+                    "Profilini göster",
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const QrShareScreen(),
                         ),
                       );
                     },
-                    child: buildMenuCard(
-                      Icons.qr_code,
-                      "QR Paylaş",
-                      "Profilini göster",
-                    ),
                   ),
-
-                  // Ayarlar (şimdilik bilgi)
-                  GestureDetector(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text("Ayarlar ekranı yakında eklenecek."),
+                  buildMenuCard(
+                    Icons.settings,
+                    "Ayarlar",
+                    "Tercihleri düzenle",
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
                         ),
                       );
                     },
-                    child: buildMenuCard(
-                      Icons.settings,
-                      "Ayarlar",
-                      "Tercihleri düzenle",
-                    ),
                   ),
                 ],
               ),
@@ -253,35 +222,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 10),
 
-            // 🔥 Sayaçlar için gerçek zamanlı StreamBuilder
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("users")
-                  .doc(user.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                if (!snapshot.hasData || !snapshot.data!.exists) {
-                  return _buildSummaryContainer(0, 0, 0);
-                }
-
-                final data =
-                    snapshot.data!.data() as Map<String, dynamic>? ?? {};
-
-                final List links = (data["links"] as List?) ?? [];
-                final int connections = links.length;
-
-                final int views = (data["viewCount"] ?? 0) as int;
-                final int shares = (data["shareCount"] ?? 0) as int;
-
-                return _buildSummaryContainer(connections, views, shares);
-              },
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  )
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: const [
+                  SummaryItem(number: "0", title: "Bağlantı"),
+                  SummaryItem(number: "0", title: "Görüntüleme"),
+                  SummaryItem(number: "0", title: "Paylaşım"),
+                ],
+              ),
             ),
           ],
         ),
@@ -289,40 +251,75 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Aktivite Özeti container'ı
-  Widget _buildSummaryContainer(int connections, int views, int shares) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 1,
-          )
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          summaryItem(connections.toString(), "Bağlantı"),
-          summaryItem(views.toString(), "Görüntüleme"),
-          summaryItem(shares.toString(), "Paylaşım"),
-        ],
+  Widget buildMenuCard(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 10,
+              spreadRadius: 1,
+            )
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 32, color: const Color(0xFF6A4ECF)),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
 
-  // Özet kutusu içindeki tek bir değer
-  static Widget summaryItem(String number, String title) {
+class SummaryItem extends StatelessWidget {
+  final String number;
+  final String title;
+
+  const SummaryItem({
+    super.key,
+    required this.number,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Text(
           number,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -330,46 +327,6 @@ class _HomeScreenState extends State<HomeScreen> {
           style: const TextStyle(color: Colors.black54),
         ),
       ],
-    );
-  }
-
-  // Hızlı işlem kartı
-  Widget buildMenuCard(IconData icon, String title, String subtitle) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 1,
-          )
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: const Color(0xFF6A4ECF)),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
