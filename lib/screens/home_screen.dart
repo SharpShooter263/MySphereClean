@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'login_screen.dart';
 import 'profile_screen.dart';
-import 'links_screen.dart'; // ⬅️ YENİ: Linklerim ekranı
+import 'links_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +16,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String userName = "";
   String userEmail = "";
+
+  int linkCount = 0;
+  int viewCount = 0;
+  int shareCount = 0;
 
   @override
   void initState() {
@@ -31,18 +35,49 @@ class _HomeScreenState extends State<HomeScreen> {
         userEmail = user.email ?? "";
       });
 
-      // Firestore'dan kullanıcı bilgilerini çek
       DocumentSnapshot snapshot = await FirebaseFirestore.instance
           .collection("users")
           .doc(user.uid)
           .get();
 
       if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+
         setState(() {
-          userName = snapshot["name"] ?? "";
+          userName = data["name"]?.toString() ?? "";
+          final List<dynamic>? links = data["links"] as List<dynamic>?;
+          linkCount = links?.length ?? 0;
+
+          // İleride QR profil görüntüleme / paylaşma eklersek bunları artıracağız
+          viewCount = (data["views"] ?? 0) is int
+              ? data["views"]
+              : int.tryParse(data["views"].toString()) ?? 0;
+          shareCount = (data["shares"] ?? 0) is int
+              ? data["shares"]
+              : int.tryParse(data["shares"].toString()) ?? 0;
         });
       }
     }
+  }
+
+  void _openProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    ).then((_) {
+      // Profilden geri dönünce bilgileri tazele
+      loadUserData();
+    });
+  }
+
+  void _openLinks() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LinksScreen()),
+    ).then((_) {
+      // Linklerden dönünce bağlantı sayısını tazele
+      loadUserData();
+    });
   }
 
   @override
@@ -152,53 +187,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 children: [
-                  // Profilim kartı → Profil ekranına gider
-                  buildMenuCard(
+                  _buildMenuCard(
                     icon: Icons.person,
                     title: "Profilim",
                     subtitle: "Bilgilerini düzenle",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ProfileScreen(),
-                        ),
-                      );
-                    },
+                    onTap: _openProfile,
                   ),
-
-                  // Linklerim kartı → Link ekranına gider
-                  buildMenuCard(
+                  _buildMenuCard(
                     icon: Icons.link,
                     title: "Linklerim",
                     subtitle: "Sosyal medya ekle",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LinksScreen(),
-                        ),
-                      );
-                    },
+                    onTap: _openLinks,
                   ),
-
-                  // QR Paylaş (şimdilik boş, sonra dolduracağız)
-                  buildMenuCard(
+                  _buildMenuCard(
                     icon: Icons.qr_code,
                     title: "QR Paylaş",
                     subtitle: "Profilini göster",
                     onTap: () {
-                      // TODO: QR ekranı daha sonra
+                      // İleride QR ekranı ekleyeceğiz
                     },
                   ),
-
-                  // Ayarlar (şimdilik boş)
-                  buildMenuCard(
+                  _buildMenuCard(
                     icon: Icons.settings,
                     title: "Ayarlar",
                     subtitle: "Tercihleri düzenle",
                     onTap: () {
-                      // TODO: Ayarlar ekranı daha sonra
+                      // Ayarlar ekranı henüz yok
                     },
                   ),
                 ],
@@ -233,10 +247,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: const [
-                  _SummaryItem(number: "0", title: "Bağlantı"),
-                  _SummaryItem(number: "0", title: "Görüntüleme"),
-                  _SummaryItem(number: "0", title: "Paylaşım"),
+                children: [
+                  summaryItem(linkCount.toString(), "Bağlantı"),
+                  summaryItem(viewCount.toString(), "Görüntüleme"),
+                  summaryItem(shareCount.toString(), "Paylaşım"),
                 ],
               ),
             ),
@@ -246,19 +260,30 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Özet kutusu (alt beyaz kutudaki sayılar)
-  static const TextStyle _summaryNumberStyle =
-      TextStyle(fontSize: 24, fontWeight: FontWeight.bold);
+  static Widget summaryItem(String number, String title) {
+    return Column(
+      children: [
+        Text(
+          number,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(color: Colors.black54),
+        ),
+      ],
+    );
+  }
 
-  static const TextStyle _summaryTitleStyle =
-      TextStyle(color: Colors.black54);
-
-  // Hızlı işlemler kartı
-  Widget buildMenuCard({
+  Widget _buildMenuCard({
     required IconData icon,
     required String title,
     required String subtitle,
-    VoidCallback? onTap,
+    required VoidCallback onTap,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(22),
@@ -284,8 +309,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               Text(
                 title,
-                style:
-                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
@@ -297,24 +324,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SummaryItem extends StatelessWidget {
-  final String number;
-  final String title;
-
-  const _SummaryItem({required this.number, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(number, style: _HomeScreenState._summaryNumberStyle),
-        const SizedBox(height: 4),
-        Text(title, style: _HomeScreenState._summaryTitleStyle),
-      ],
     );
   }
 }
