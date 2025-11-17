@@ -9,16 +9,19 @@ class QRShareScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tema renkleri
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF3EFFC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
+        backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: theme.colorScheme.onBackground),
+        title: Text(
           "QR Paylaş",
           style: TextStyle(
-            color: Colors.black87,
+            color: theme.colorScheme.onBackground,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -27,34 +30,50 @@ class QRShareScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            QrImageView(
-              data: profileUrl,
-              size: 220,
+            // KART ARKA PLANI ARTIK TEMA UYUMLU
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.shadowColor.withOpacity(0.15),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  )
+                ],
+              ),
+              child: QrImageView(
+                data: profileUrl,
+                size: 220,
+              ),
             ),
+
             const SizedBox(height: 20),
+
             Text(
               "Bu QR kodu okutarak MySphere profilini açabilirler.",
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: theme.colorScheme.onBackground.withOpacity(0.7),
               ),
             ),
           ],
         ),
       ),
+
+      // PAYLAŞ BUTONU
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF6A4ECF),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
         onPressed: () {
-          // Profil linkini paylaş
           Share.share(
             profileUrl,
             subject: "MySphere profilim",
           );
         },
-        label: const Text(
-          "Linki Paylaş",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        label: const Text("Linki Paylaş"),
         icon: const Icon(Icons.share),
       ),
     );
