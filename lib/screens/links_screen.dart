@@ -109,9 +109,13 @@ class _LinksScreenState extends State<LinksScreen> {
     _urlController.text = current["url"] ?? "";
     _selectedPlatform = current["platform"] ?? "Diğer";
 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: theme.scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -126,11 +130,12 @@ class _LinksScreenState extends State<LinksScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 "Linki Düzenle",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.onBackground,
                 ),
               ),
               const SizedBox(height: 16),
@@ -168,7 +173,7 @@ class _LinksScreenState extends State<LinksScreen> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6A4ECF),
+                    backgroundColor: colorScheme.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -218,15 +223,30 @@ class _LinksScreenState extends State<LinksScreen> {
   }
 
   Widget _buildPlatformDropdown() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.12),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedPlatform,
+          dropdownColor: theme.cardColor,
+          iconEnabledColor: colorScheme.onBackground,
+          style: TextStyle(
+            color: colorScheme.onBackground,
+          ),
           isExpanded: true,
           items: _platforms
               .map(
@@ -246,37 +266,49 @@ class _LinksScreenState extends State<LinksScreen> {
   }
 
   Widget _buildUrlField() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return TextField(
       controller: _urlController,
       keyboardType: TextInputType.url,
       decoration: InputDecoration(
         labelText: "Link (https://...)",
+        labelStyle: TextStyle(
+          color: colorScheme.onBackground.withOpacity(0.7),
+        ),
         filled: true,
-        fillColor: Colors.white,
-        prefixIcon: const Icon(Icons.link),
+        fillColor: theme.cardColor,
+        prefixIcon: Icon(Icons.link, color: colorScheme.primary),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
         ),
+      ),
+      style: TextStyle(
+        color: colorScheme.onBackground,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF3EFFC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onBackground),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           "Linklerim",
           style: TextStyle(
-            color: Colors.black87,
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -286,11 +318,12 @@ class _LinksScreenState extends State<LinksScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "Sosyal medya veya web siteni ekle",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 16),
@@ -309,7 +342,7 @@ class _LinksScreenState extends State<LinksScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _addLink,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A4ECF),
+                  backgroundColor: colorScheme.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -331,26 +364,31 @@ class _LinksScreenState extends State<LinksScreen> {
 
             const SizedBox(height: 24),
 
-            const Text(
+            Text(
               "Kayıtlı Linkler",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
+                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 12),
 
             Expanded(
               child: _links.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         "Henüz link eklemedin.",
-                        style: TextStyle(color: Colors.black54),
+                        style: TextStyle(
+                          color:
+                              colorScheme.onBackground.withOpacity(0.6),
+                        ),
                       ),
                     )
                   : ListView.separated(
                       itemCount: _links.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final item = _links[index];
                         final platform = item["platform"] ?? "";
@@ -362,11 +400,12 @@ class _LinksScreenState extends State<LinksScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: theme.cardColor,
                               borderRadius: BorderRadius.circular(18),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.15),
+                                  color: theme.shadowColor
+                                      .withOpacity(0.12),
                                   blurRadius: 8,
                                   spreadRadius: 1,
                                 )
@@ -374,8 +413,10 @@ class _LinksScreenState extends State<LinksScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.link,
-                                    color: Color(0xFF6A4ECF)),
+                                Icon(
+                                  Icons.link,
+                                  color: colorScheme.primary,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
@@ -384,9 +425,10 @@ class _LinksScreenState extends State<LinksScreen> {
                                     children: [
                                       Text(
                                         platform,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
+                                          color: colorScheme.onBackground,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -394,8 +436,9 @@ class _LinksScreenState extends State<LinksScreen> {
                                         url,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.black54,
+                                        style: TextStyle(
+                                          color: colorScheme.onBackground
+                                              .withOpacity(0.7),
                                         ),
                                       ),
                                     ],
@@ -403,12 +446,20 @@ class _LinksScreenState extends State<LinksScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton(
-                                  icon: const Icon(Icons.edit, size: 20),
+                                  icon: Icon(
+                                    Icons.edit,
+                                    size: 20,
+                                    color: colorScheme.onBackground
+                                        .withOpacity(0.8),
+                                  ),
                                   onPressed: () => _editLink(index),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      size: 20),
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: colorScheme.error,
+                                  ),
                                   onPressed: () => _deleteLink(index),
                                 ),
                               ],
