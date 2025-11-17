@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(user.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        // Veri yüklenirken basit bir loader
+        // Veri yüklenirken loader
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             backgroundColor: Color(0xFFF3EFFC),
@@ -49,8 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = snapshot.data!.data() ?? {};
 
         final String name = (data['name'] ?? '') as String;
-        final String email =
-            (data['email'] ?? user.email ?? '') as String;
+        final String email = (data['email'] ?? user.email ?? '') as String;
 
         final List<dynamic> links = (data['links'] as List<dynamic>?) ?? [];
 
@@ -59,6 +58,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final int shares = (data['shares'] ?? 0) as int;
 
         final int connectionsCount = links.length;
+
+        // Şimdilik basit bir profil URL'i (ileride gerçek domain / deep link ile değiştirebiliriz)
+        final String profileUrl = 'https://mysphere.app/user/${user.uid}';
 
         return Scaffold(
           backgroundColor: const Color(0xFFF3EFFC),
@@ -206,7 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const QrShareScreen(),
+                                  builder: (_) =>
+                                      QRShareScreen(profileUrl: profileUrl),
                                 ),
                               );
                             },
