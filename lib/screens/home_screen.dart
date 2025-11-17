@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'login_screen.dart';
 import 'profile_screen.dart';
 
@@ -29,16 +30,21 @@ class _HomeScreenState extends State<HomeScreen> {
         userEmail = user.email ?? "";
       });
 
-      // Firestore'dan kullanıcı bilgilerini çek
-      DocumentSnapshot snapshot = await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .get();
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(user.uid)
+            .get();
 
-      if (snapshot.exists) {
-        setState(() {
-          userName = snapshot["name"] ?? "";
-        });
+        if (snapshot.exists) {
+          final data = snapshot.data() as Map<String, dynamic>?;
+
+          setState(() {
+            userName = (data?["name"] ?? "") as String;
+          });
+        }
+      } catch (_) {
+        // Hata olursa şimdilik sessiz geçiyoruz
       }
     }
   }
@@ -65,9 +71,11 @@ class _HomeScreenState extends State<HomeScreen> {
               await FirebaseAuth.instance.signOut();
               if (context.mounted) {
                 Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const LoginScreen()));
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
               }
             },
           ),
@@ -98,16 +106,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   const CircleAvatar(
                     radius: 28,
                     backgroundColor: Color(0xFFDCD4FF),
-                    child: Icon(Icons.person,
-                        size: 32, color: Color(0xFF6A4ECF)),
+                    child: Icon(
+                      Icons.person,
+                      size: 32,
+                      color: Color(0xFF6A4ECF),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         "Hoş geldin 👋",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -145,11 +156,62 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 children: [
-                  buildMenuCard(Icons.person, "Profilim", "Bilgilerini düzenle"),
-                  buildMenuCard(Icons.link, "Linklerim", "Sosyal medya ekle"),
-                  buildMenuCard(Icons.qr_code, "QR Paylaş", "Profilini göster"),
+                  // 🔹 PROFİLİM – ProfileScreen’e gider
                   buildMenuCard(
-                      Icons.settings, "Ayarlar", "Tercihleri düzenle"),
+                    Icons.person,
+                    "Profilim",
+                    "Bilgilerini düzenle",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 🔹 Linklerim – şimdilik placeholder
+                  buildMenuCard(
+                    Icons.link,
+                    "Linklerim",
+                    "Sosyal medya ekle",
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Linklerim ekranı yakında eklenecek."),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 🔹 QR Paylaş – şimdilik placeholder
+                  buildMenuCard(
+                    Icons.qr_code,
+                    "QR Paylaş",
+                    "Profilini göster",
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("QR paylaşımı yakında eklenecek."),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 🔹 Ayarlar – şimdilik placeholder
+                  buildMenuCard(
+                    Icons.settings,
+                    "Ayarlar",
+                    "Tercihleri düzenle",
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Ayarlar ekranı yakında eklenecek."),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -182,10 +244,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  summaryItem("0", "Bağlantı"),
-                  summaryItem("0", "Görüntüleme"),
-                  summaryItem("0", "Paylaşım"),
+                children: const [
+                  _SummaryItem(number: "0", title: "Bağlantı"),
+                  _SummaryItem(number: "0", title: "Görüntüleme"),
+                  _SummaryItem(number: "0", title: "Paylaşım"),
                 ],
               ),
             ),
@@ -195,49 +257,84 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  static Widget summaryItem(String number, String title) {
-    return Column(
-      children: [
-        Text(number,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        SizedBox(height: 4),
-        Text(title, style: TextStyle(color: Colors.black54)),
-      ],
-    );
-  }
+  // ---- Widgetlar ---- //
 
-  Widget buildMenuCard(IconData icon, String title, String subtitle) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 10,
-            spreadRadius: 1,
-          )
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: Color(0xFF6A4ECF)),
-            const SizedBox(height: 12),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
-            ),
+  Widget buildMenuCard(
+    IconData icon,
+    String title,
+    String subtitle, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 10,
+              spreadRadius: 1,
+            )
           ],
         ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 32, color: const Color(0xFF6A4ECF)),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _SummaryItem extends StatelessWidget {
+  final String number;
+  final String title;
+
+  const _SummaryItem({
+    super.key,
+    required this.number,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          number,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(color: Colors.black54),
+        ),
+      ],
     );
   }
 }
