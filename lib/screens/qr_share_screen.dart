@@ -14,8 +14,7 @@ class QrShareScreen extends StatefulWidget {
 class _QrShareScreenState extends State<QrShareScreen> {
   String? _profileUrl;
 
-  static const String _baseProfileUrl = "https://mysphere.app/p/"; 
-  // İstersen burayı sonra kendi domaininle değiştirirsin.
+  static const String _baseProfileUrl = "https://mysphere.app/p/";
 
   @override
   void initState() {
@@ -26,9 +25,7 @@ class _QrShareScreenState extends State<QrShareScreen> {
   void _buildProfileUrl() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() {
-        _profileUrl = null;
-      });
+      setState(() => _profileUrl = null);
       return;
     }
 
@@ -40,7 +37,9 @@ class _QrShareScreenState extends State<QrShareScreen> {
 
   void _copyToClipboard() {
     if (_profileUrl == null) return;
-    Clipboard.setData(ClipboardData(text: _profileUrl));
+
+    Clipboard.setData(ClipboardData(text: _profileUrl!));
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Profil linki kopyalandı.")),
     );
@@ -48,10 +47,8 @@ class _QrShareScreenState extends State<QrShareScreen> {
 
   void _shareProfile() {
     if (_profileUrl == null) return;
-    Share.share(
-      _profileUrl!,
-      subject: "MySphere profilim",
-    );
+
+    Share.share(_profileUrl!, subject: "MySphere profilim");
   }
 
   @override
@@ -172,7 +169,6 @@ class _QrShareScreenState extends State<QrShareScreen> {
                         IconButton(
                           onPressed: _copyToClipboard,
                           icon: const Icon(Icons.copy, color: Colors.black54),
-                          tooltip: "Kopyala",
                         ),
                       ],
                     ),
