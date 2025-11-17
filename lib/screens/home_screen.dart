@@ -30,24 +30,20 @@ class _HomeScreenState extends State<HomeScreen> {
       return const LoginScreen();
     }
 
-    // QR ve profil paylaşımı için kullanılacak profil linki
-    final String profileUrl = "https://mysphere.app/u/${user.uid}";
-
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        // Veri yüklenirken loader
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
-            backgroundColor: theme.scaffoldBackgroundColor,
+            backgroundColor: colorScheme.background,
             body: const Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Veri yoksa / doküman silindiyse Login'e at (olağanüstü durum)
+        // Doküman yoksa yine Login'e at (olağanüstü durum)
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return const LoginScreen();
         }
@@ -56,19 +52,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final String name = (data['name'] ?? '') as String;
         final String email = (data['email'] ?? user.email ?? '') as String;
-
         final List<dynamic> links = (data['links'] as List<dynamic>?) ?? [];
 
         final int views = (data['views'] ?? 0) as int;
         final int shares = (data['shares'] ?? 0) as int;
+
         final int connectionsCount = links.length;
 
+        // QR için profil linki (şimdilik taslak bir URL)
+        final String profileUrl =
+            'https://mysphere.app/profile/${user.uid}';
+
         return Scaffold(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: colorScheme.background,
           appBar: AppBar(
             elevation: 0,
             backgroundColor: Colors.transparent,
-            iconTheme: IconThemeData(color: colorScheme.onBackground),
             title: Text(
               "MySphere",
               style: TextStyle(
@@ -78,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             actions: [
+              // Sağ üstte Ayarlar ikonu
               IconButton(
                 icon: Icon(Icons.settings, color: colorScheme.onBackground),
                 onPressed: () {
@@ -89,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
+              // Çıkış ikonu
               IconButton(
                 icon: Icon(Icons.logout, color: colorScheme.onBackground),
                 onPressed: () async {
@@ -97,8 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const LoginScreen(),
-                      ),
+                          builder: (_) => const LoginScreen()),
                       (route) => false,
                     );
                   }
@@ -117,16 +117,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ÜST PROFİL KARTI
+                      // ÜST BÖLÜM
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: theme.cardColor,
+                          color: colorScheme.surface,
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.shadowColor.withOpacity(0.12),
+                              color: Colors.black.withOpacity(
+                                  theme.brightness == Brightness.light
+                                      ? 0.06
+                                      : 0.3),
                               blurRadius: 10,
                               spreadRadius: 1,
                             )
@@ -137,22 +140,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             CircleAvatar(
                               radius: 28,
                               backgroundColor:
-                                  colorScheme.primary.withOpacity(0.18),
+                                  colorScheme.primaryContainer,
                               child: Icon(
                                 Icons.person,
                                 size: 32,
-                                color: colorScheme.primary,
+                                color: colorScheme.onPrimaryContainer,
                               ),
                             ),
                             const SizedBox(width: 16),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   "Hoş geldin 👋",
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurface,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -160,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   name.isNotEmpty ? name : email,
                                   style: TextStyle(
                                     fontSize: 16,
-                                    color: colorScheme.onBackground
+                                    color: colorScheme.onSurface
                                         .withOpacity(0.7),
                                   ),
                                 ),
@@ -172,17 +176,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       const SizedBox(height: 30),
 
-                      const Text(
+                      Text(
                         "Hızlı İşlemler",
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
+                          color: colorScheme.onBackground,
                         ),
                       ),
 
                       const SizedBox(height: 15),
 
-                      // HIZLI İŞLEMLER GRID
+                      // KUTULAR
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -236,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           buildMenuCard(
                             context: context,
-                            icon: Icons.analytics_outlined,
+                            icon: Icons.settings,
                             title: "Ayarlar",
                             subtitle: "Tercihleri düzenle",
                             onTap: () {
@@ -253,11 +258,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       const SizedBox(height: 20),
 
-                      const Text(
+                      Text(
                         "Aktivite Özeti",
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
+                          color: colorScheme.onBackground,
                         ),
                       ),
 
@@ -265,20 +271,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 20),
                         decoration: BoxDecoration(
-                          color: theme.cardColor,
+                          color: colorScheme.surface,
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.shadowColor.withOpacity(0.12),
+                              color: Colors.black.withOpacity(
+                                  theme.brightness == Brightness.light
+                                      ? 0.06
+                                      : 0.3),
                               blurRadius: 10,
                               spreadRadius: 1,
                             )
                           ],
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceEvenly,
                           children: [
                             summaryItem(
                               context,
@@ -311,8 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static Widget summaryItem(
       BuildContext context, String number, String title) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       children: [
@@ -321,14 +331,14 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: colorScheme.primary,
+            color: colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           title,
           style: TextStyle(
-            color: theme.colorScheme.onBackground.withOpacity(0.7),
+            color: colorScheme.onSurface.withOpacity(0.7),
           ),
         ),
       ],
@@ -350,11 +360,12 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: theme.cardColor,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: theme.shadowColor.withOpacity(0.12),
+              color: Colors.black.withOpacity(
+                  theme.brightness == Brightness.light ? 0.06 : 0.3),
               blurRadius: 10,
               spreadRadius: 1,
             )
@@ -369,9 +380,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
@@ -379,8 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 subtitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color:
-                      theme.colorScheme.onBackground.withOpacity(0.7),
+                  color: colorScheme.onSurface.withOpacity(0.7),
                 ),
               ),
             ],
