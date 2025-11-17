@@ -35,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (data != null) {
         _nameController.text = (data['name'] ?? '') as String;
         _bioController.text = (data['bio'] ?? '') as String;
+        setState(() {});
       }
     } catch (_) {
       // Hata olursa sessiz geçiyoruz, istersen Snackbar ekleyebiliriz
@@ -68,7 +69,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       // Kaydettikten sonra bir önceki sayfaya dönebiliriz
-      Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profil güncellenemedi.')),
@@ -90,19 +93,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
-
     final email = user?.email ?? '';
 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF3EFFC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
+        iconTheme: IconThemeData(color: colorScheme.onBackground),
+        title: Text(
           'Profilim',
           style: TextStyle(
-            color: Colors.black87,
+            color: colorScheme.onBackground,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -112,11 +117,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Bilgilerini düzenle',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
+                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 24),
@@ -125,15 +131,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Center(
               child: CircleAvatar(
                 radius: 36,
-                backgroundColor: const Color(0xFFDDD3FF),
+                backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
                 child: Text(
                   _nameController.text.isNotEmpty
                       ? _nameController.text[0].toUpperCase()
                       : (email.isNotEmpty ? email[0].toUpperCase() : '?'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF5B3BC4),
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ),
@@ -146,13 +152,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 labelText: 'Ad Soyad',
+                labelStyle: TextStyle(
+                  color: colorScheme.onBackground.withOpacity(0.7),
+                ),
                 filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.person),
+                fillColor: theme.cardColor,
+                prefixIcon: Icon(
+                  Icons.person,
+                  color: colorScheme.primary,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
+              ),
+              style: TextStyle(
+                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 16),
@@ -162,14 +177,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               enabled: false,
               decoration: InputDecoration(
                 labelText: 'E-posta',
+                labelStyle: TextStyle(
+                  color: colorScheme.onBackground.withOpacity(0.7),
+                ),
                 hintText: email,
+                hintStyle: TextStyle(
+                  color: colorScheme.onBackground.withOpacity(0.7),
+                ),
                 filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.email),
+                fillColor: theme.cardColor,
+                prefixIcon: Icon(
+                  Icons.email,
+                  color: colorScheme.primary,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
+              ),
+              style: TextStyle(
+                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 16),
@@ -181,13 +208,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               decoration: InputDecoration(
                 labelText: 'Hakkımda (isteğe bağlı)',
                 alignLabelWithHint: true,
+                labelStyle: TextStyle(
+                  color: colorScheme.onBackground.withOpacity(0.7),
+                ),
                 filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.info_outline),
+                fillColor: theme.cardColor,
+                prefixIcon: Icon(
+                  Icons.info_outline,
+                  color: colorScheme.primary,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
+              ),
+              style: TextStyle(
+                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 28),
@@ -199,7 +235,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A4ECF),
+                  backgroundColor: colorScheme.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
