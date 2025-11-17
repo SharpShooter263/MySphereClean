@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LinksScreen extends StatefulWidget {
   const LinksScreen({super.key});
@@ -10,7 +11,7 @@ class LinksScreen extends StatefulWidget {
 }
 
 class _LinksScreenState extends State<LinksScreen> {
-  final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _linkController = TextEditingController();
 
   final List<String> _platforms = [
     "Instagram",
@@ -26,13 +27,19 @@ class _LinksScreenState extends State<LinksScreen> {
   String _selectedPlatform = "Instagram";
   bool _isSaving = false;
 
-  // Mevcut linkler: [{platform: ..., url: ...}, ...]
-  List<Map<String, dynamic>> _links = [];
+  /// Firestore’da tuttuğumuz link modeli
+  List<Map<String, String>> _links = [];
 
   @override
   void initState() {
     super.initState();
     _loadLinks();
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   Future<void> _loadLinks() async {
@@ -44,16 +51,21 @@ class _LinksScreenState extends State<LinksScreen> {
         .doc(user.uid)
         .get();
 
-    final data = doc.data();
-    if (data == null) return;
+    if (!doc.exists) return;
 
-    final rawLinks = (data["links"] ?? []) as List<dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
+    final List<dynamic>? linksFromDb = data["links"] as List<dynamic>?;
 
-    setState(() {
-      _links = rawLinks
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-    });
+    if (linksFromDb != null) {
+      setState(() {
+        _links = linksFromDb
+            .map((e) => {
+                  "platform": e["platform"]?.toString() ?? "",
+                  "url": e["url"]?.toString() ?? "",
+                })
+            .toList();
+      });
+    }
   }
 
   Future<void> _saveLinksToFirestore() async {
@@ -63,21 +75,34 @@ class _LinksScreenState extends State<LinksScreen> {
     await FirebaseFirestore.instance
         .collection("users")
         .doc(user.uid)
-        .update({
-      "links": _links,
-    });
-  }
-
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+        .set(
+      {
+        "links": _links,
+      },
+      SetOptions(merge: true),
     );
   }
 
   Future<void> _addLink() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) {
-      _showMessage("Lütfen bir link girin.");
+    final rawUrl = _linkController.text.trim();
+
+    if (rawUrl.isEmpty) {
+      _showMessage("Lütfen bir link gir.");
+      return;
+    }
+
+    String url = rawUrl;
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "https://$url";
+    }
+
+    // Aynı link zaten kayıtlı mı?
+    final alreadyExists = _links.any(
+      (item) => item["platform"] == _selectedPlatform && item["url"] == url,
+    );
+
+    if (alreadyExists) {
+      _showMessage("Bu link zaten kayıtlı.");
       return;
     }
 
@@ -90,20 +115,110 @@ class _LinksScreenState extends State<LinksScreen> {
 
     await _saveLinksToFirestore();
 
-    _urlController.clear();
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      _linkController.clear();
+    });
 
-    _showMessage("Link eklendi.");
+    _showMessage("Link kaydedildi.");
   }
 
   Future<void> _deleteLink(int index) async {
-    setState(() => _isSaving = true);
-
-    _links.removeAt(index);
+    setState(() {
+      _links.removeAt(index);
+    });
     await _saveLinksToFirestore();
-
-    setState(() => _isSaving = false);
     _showMessage("Link silindi.");
+  }
+
+  Future<void> _editLink(int index) async {
+    final current = _links[index];
+
+    final TextEditingController editController =
+        TextEditingController(text: current["url"] ?? "");
+
+    String platform = current["platform"] ?? "Instagram";
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Linki Düzenle"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: platform,
+                items: _platforms
+                    .map((p) =>
+                        DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    platform = value;
+                  }
+                },
+                decoration: const InputDecoration(
+                  labelText: "Platform",
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: editController,
+                decoration: const InputDecoration(
+                  labelText: "Link (https://...)",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text("Vazgeç"),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              child: const Text("Kaydet"),
+              onPressed: () async {
+                String newUrl = editController.text.trim();
+                if (newUrl.isEmpty) {
+                  _showMessage("Link boş olamaz.");
+                  return;
+                }
+                if (!newUrl.startsWith("http://") &&
+                    !newUrl.startsWith("https://")) {
+                  newUrl = "https://$newUrl";
+                }
+
+                setState(() {
+                  _links[index] = {
+                    "platform": platform,
+                    "url": newUrl,
+                  };
+                });
+
+                await _saveLinksToFirestore();
+                if (context.mounted) Navigator.pop(context);
+                _showMessage("Link güncellendi.");
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+
+    if (!await canLaunchUrl(uri)) {
+      _showMessage("Bu link açılamadı.");
+      return;
+    }
+
+    await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   @override
@@ -125,55 +240,37 @@ class _LinksScreenState extends State<LinksScreen> {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               "Sosyal medya veya web siteni ekle",
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             // Platform seçimi
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedPlatform,
-                  items: _platforms
-                      .map(
-                        (p) => DropdownMenuItem(
-                          value: p,
-                          child: Text(p),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _selectedPlatform = value);
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Link alanı
-            TextField(
-              controller: _urlController,
+            DropdownButtonFormField<String>(
+              value: _selectedPlatform,
+              items: _platforms
+                  .map((p) =>
+                      DropdownMenuItem<String>(value: p, child: Text(p)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedPlatform = value;
+                  });
+                }
+              },
               decoration: InputDecoration(
-                labelText: "Link (https://...)",
                 filled: true,
                 fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.link),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -183,9 +280,27 @@ class _LinksScreenState extends State<LinksScreen> {
 
             const SizedBox(height: 16),
 
+            // Link alanı
+            TextField(
+              controller: _linkController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: "Link (https://...)",
+                prefixIcon: const Icon(Icons.link),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 54,
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _addLink,
                 style: ElevatedButton.styleFrom(
@@ -210,60 +325,87 @@ class _LinksScreenState extends State<LinksScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             const Text(
               "Kayıtlı Linkler",
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            Expanded(
-              child: _links.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "Henüz link eklemedin.",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _links.length,
-                      itemBuilder: (context, index) {
-                        final link = _links[index];
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.15),
-                                blurRadius: 8,
-                                spreadRadius: 1,
-                              )
-                            ],
-                          ),
-                          child: ListTile(
-                            title: Text(link["platform"] ?? ""),
-                            subtitle: Text(
-                              link["url"] ?? "",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: _isSaving
-                                  ? null
-                                  : () => _deleteLink(index),
-                            ),
-                          ),
-                        );
-                      },
+            if (_links.isEmpty)
+              const Text(
+                "Henüz link eklemedin.",
+                style: TextStyle(color: Colors.black54),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _links.length,
+                itemBuilder: (context, index) {
+                  final item = _links[index];
+                  final platform = item["platform"] ?? "";
+                  final url = item["url"] ?? "";
+
+                  return Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
-            ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _openUrl(url),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.link),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    platform,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    url,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _editLink(index),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _deleteLink(index),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
