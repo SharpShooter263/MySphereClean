@@ -87,4 +87,160 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
-    super
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+    final email = user?.email ?? '';
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      backgroundColor: colorScheme.background,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: colorScheme.onBackground),
+        title: Text(
+          'Profilim',
+          style: TextStyle(
+            color: colorScheme.onBackground,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bilgilerini düzenle',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onBackground,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Avatar
+            Center(
+              child: CircleAvatar(
+                radius: 36,
+                backgroundColor:
+                    colorScheme.primaryContainer.withOpacity(0.9),
+                child: Text(
+                  _nameController.text.isNotEmpty
+                      ? _nameController.text[0].toUpperCase()
+                      : (email.isNotEmpty ? email[0].toUpperCase() : '?'),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Ad Soyad
+            TextField(
+              controller: _nameController,
+              textInputAction: TextInputAction.next,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Ad Soyad',
+                labelStyle:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                filled: true,
+                fillColor: colorScheme.surface,
+                prefixIcon: Icon(Icons.person, color: colorScheme.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // E-posta (salt okunur)
+            TextField(
+              enabled: false,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'E-posta',
+                hintText: email,
+                labelStyle:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                filled: true,
+                fillColor: colorScheme.surface,
+                prefixIcon: Icon(Icons.email, color: colorScheme.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Bio
+            TextField(
+              controller: _bioController,
+              maxLines: 3,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Hakkımda (isteğe bağlı)',
+                alignLabelWithHint: true,
+                labelStyle:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                filled: true,
+                fillColor: colorScheme.surface,
+                prefixIcon:
+                    Icon(Icons.info_outline, color: colorScheme.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // Kaydet butonu
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: _isSaving
+                    ? CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.onPrimary,
+                        ),
+                      )
+                    : Text(
+                        'Kaydet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onPrimary,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
