@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 ],
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   summaryItem("0", "Bağlantı"),
