@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'screens/login_screen.dart';
+
+import 'screens/home_screen.dart';
+import 'screens/login_screen.dart'; // HomeScreen içinde kullanılıyor olabilir
+
+// Eğer firebase_options.dart kullanıyorsan bu importu da aç:
+// import 'firebase_options.dart';
+
+/// Uygulama genelinde temayı yöneten notifier.
+/// SettingsScreen buraya erişip ThemeMode'u değiştiriyor.
+final ValueNotifier<ThemeMode> appThemeMode =
+    ValueNotifier<ThemeMode>(ThemeMode.light);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🔥 Firebase'i doğrudan koddan başlatıyoruz
-  await Firebase.initializeApp(
-    options: const FirebaseOptions(
-      apiKey: 'AIzaSyAF0kljgHTOtLPbGbfIxIcEwd_N3dAXkpQ',
-      appId: '1:740712283120:android:ff55a85f1ba71be655fb35',
-      messagingSenderId: '740712283120',
-      projectId: 'mysphereclean',
-      storageBucket: 'mysphereclean.firebasestorage.app',
-    ),
-  );
+  // Eğer projende daha önce:
+  // Firebase.initializeApp(
+  //   options: DefaultFirebaseOptions.currentPlatform,
+  // );
+  // kullanıyorsan aşağıdaki satırı yorum satırına alıp
+  // kendi kullandığın initialize satırını ekleyebilirsin.
+  await Firebase.initializeApp();
 
   runApp(const MyApp());
 }
@@ -24,13 +31,48 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'MySphereClean',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const LoginScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, mode, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'MySphere',
+          themeMode: mode,
+
+          // AÇIK TEMA
+          theme: ThemeData(
+            useMaterial3: false,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF6A4ECF),
+              brightness: Brightness.light,
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF3EFFC),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              foregroundColor: Colors.black87,
+            ),
+          ),
+
+          // KOYU TEMA
+          darkTheme: ThemeData(
+            useMaterial3: false,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF6A4ECF),
+              brightness: Brightness.dark,
+            ),
+            scaffoldBackgroundColor: Colors.black,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              foregroundColor: Colors.white,
+            ),
+          ),
+
+          // HomeScreen kendi içinde kullanıcı login mi değil mi kontrol ediyor.
+          home: const HomeScreen(),
+        );
+      },
     );
   }
 }
