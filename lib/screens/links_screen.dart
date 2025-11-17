@@ -38,8 +38,10 @@ class _LinksScreenState extends State<LinksScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final snap =
-        await FirebaseFirestore.instance.collection("users").doc(user.uid).get();
+    final snap = await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .get();
 
     if (!snap.exists) return;
 
@@ -112,12 +114,11 @@ class _LinksScreenState extends State<LinksScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
+        final theme = Theme.of(context);
         return Padding(
           padding: EdgeInsets.only(
             left: 24,
@@ -130,16 +131,15 @@ class _LinksScreenState extends State<LinksScreen> {
             children: [
               Text(
                 "Linki Düzenle",
-                style: TextStyle(
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 16),
-              _buildPlatformDropdown(colorScheme),
+              _buildPlatformDropdown(theme),
               const SizedBox(height: 12),
-              _buildUrlField(colorScheme),
+              _buildUrlField(theme),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -166,13 +166,13 @@ class _LinksScreenState extends State<LinksScreen> {
 
                     if (mounted) Navigator.pop(context);
 
-                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Link güncellendi.")),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
+                    backgroundColor: const Color(0xFF6A4ECF),
+                    foregroundColor: Colors.white, // <-- yazı rengi sabit
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -223,30 +223,25 @@ class _LinksScreenState extends State<LinksScreen> {
     );
   }
 
-  Widget _buildPlatformDropdown(ColorScheme colorScheme) {
+  Widget _buildPlatformDropdown(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(18),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedPlatform,
           isExpanded: true,
-          dropdownColor: colorScheme.surface,
           items: _platforms
               .map(
                 (p) => DropdownMenuItem<String>(
                   value: p,
-                  child: Text(
-                    p,
-                    style: TextStyle(color: colorScheme.onSurface),
-                  ),
+                  child: Text(p),
                 ),
               )
               .toList(),
-          iconEnabledColor: colorScheme.onSurface,
           onChanged: (value) {
             if (value == null) return;
             setState(() => _selectedPlatform = value);
@@ -256,17 +251,15 @@ class _LinksScreenState extends State<LinksScreen> {
     );
   }
 
-  Widget _buildUrlField(ColorScheme colorScheme) {
+  Widget _buildUrlField(ThemeData theme) {
     return TextField(
       controller: _urlController,
       keyboardType: TextInputType.url,
-      style: TextStyle(color: colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: "Link (https://...)",
-        labelStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
         filled: true,
-        fillColor: colorScheme.surface,
-        prefixIcon: Icon(Icons.link, color: colorScheme.primary),
+        fillColor: theme.cardColor,
+        prefixIcon: const Icon(Icons.link),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
@@ -278,22 +271,19 @@ class _LinksScreenState extends State<LinksScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: colorScheme.onBackground),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onBackground),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Linklerim",
           style: TextStyle(
-            color: colorScheme.onBackground,
+            color: theme.colorScheme.onBackground,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -305,20 +295,16 @@ class _LinksScreenState extends State<LinksScreen> {
           children: [
             Text(
               "Sosyal medya veya web siteni ekle",
-              style: TextStyle(
-                fontSize: 20,
+              style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 16),
 
-            // Platform seçimi
-            _buildPlatformDropdown(colorScheme),
+            _buildPlatformDropdown(theme),
             const SizedBox(height: 12),
 
-            // URL input
-            _buildUrlField(colorScheme),
+            _buildUrlField(theme),
             const SizedBox(height: 16),
 
             SizedBox(
@@ -327,7 +313,8 @@ class _LinksScreenState extends State<LinksScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _addLink,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
+                  backgroundColor: const Color(0xFF6A4ECF),
+                  foregroundColor: Colors.white, // <-- burada da sabit
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -352,10 +339,8 @@ class _LinksScreenState extends State<LinksScreen> {
 
             Text(
               "Kayıtlı Linkler",
-              style: TextStyle(
-                fontSize: 20,
+              style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 12),
@@ -365,7 +350,10 @@ class _LinksScreenState extends State<LinksScreen> {
                   ? Center(
                       child: Text(
                         "Henüz link eklemedin.",
-                        style: TextStyle(color: colorScheme.onBackground),
+                        style: TextStyle(
+                          color: theme.textTheme.bodyMedium?.color
+                              ?.withOpacity(0.6),
+                        ),
                       ),
                     )
                   : ListView.separated(
@@ -382,22 +370,21 @@ class _LinksScreenState extends State<LinksScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: colorScheme.surface,
+                              color: theme.cardColor,
                               borderRadius: BorderRadius.circular(18),
                               boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(
-                                      theme.brightness == Brightness.dark
-                                          ? 0.3
-                                          : 0.08),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                )
+                                if (theme.brightness == Brightness.light)
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.15),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
                               ],
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.link, color: colorScheme.primary),
+                                const Icon(Icons.link,
+                                    color: Color(0xFFB39DFF)),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
@@ -406,10 +393,9 @@ class _LinksScreenState extends State<LinksScreen> {
                                     children: [
                                       Text(
                                         platform,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
-                                          color: colorScheme.onSurface,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -418,8 +404,9 @@ class _LinksScreenState extends State<LinksScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: colorScheme.onSurface
-                                              .withOpacity(0.8),
+                                          color: theme.textTheme.bodyMedium
+                                              ?.color
+                                              ?.withOpacity(0.7),
                                         ),
                                       ),
                                     ],
@@ -427,15 +414,15 @@ class _LinksScreenState extends State<LinksScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton(
-                                  icon: Icon(Icons.edit,
-                                      size: 20,
-                                      color: colorScheme.onSurface),
+                                  icon: const Icon(Icons.edit, size: 20),
                                   onPressed: () => _editLink(index),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.delete_outline,
-                                      size: 20,
-                                      color: colorScheme.error),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: Colors.redAccent,
+                                  ),
                                   onPressed: () => _deleteLink(index),
                                 ),
                               ],
