@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LinksScreen extends StatefulWidget {
   const LinksScreen({super.key});
@@ -11,9 +10,10 @@ class LinksScreen extends StatefulWidget {
 }
 
 class _LinksScreenState extends State<LinksScreen> {
-  final TextEditingController _linkController = TextEditingController();
+  final _linkController = TextEditingController();
+  String _selectedPlatform = "Instagram";
 
-  final List<String> _platforms = [
+  final List<String> platforms = [
     "Instagram",
     "YouTube",
     "TikTok",
@@ -21,208 +21,68 @@ class _LinksScreenState extends State<LinksScreen> {
     "Facebook",
     "WhatsApp",
     "Web Sitesi",
-    "Diğer",
+    "Diğer"
   ];
 
-  String _selectedPlatform = "Instagram";
-  bool _isSaving = false;
-
-  /// Firestore’da tuttuğumuz link modeli
-  List<Map<String, String>> _links = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLinks();
-  }
-
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
-  }
-
-  Future<void> _loadLinks() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final doc = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .get();
-
-    if (!doc.exists) return;
-
-    final data = doc.data() as Map<String, dynamic>;
-    final List<dynamic>? linksFromDb = data["links"] as List<dynamic>?;
-
-    if (linksFromDb != null) {
-      setState(() {
-        _links = linksFromDb
-            .map((e) => {
-                  "platform": e["platform"]?.toString() ?? "",
-                  "url": e["url"]?.toString() ?? "",
-                })
-            .toList();
-      });
-    }
-  }
-
-  Future<void> _saveLinksToFirestore() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .set(
-      {
-        "links": _links,
-      },
-      SetOptions(merge: true),
-    );
-  }
-
   Future<void> _addLink() async {
-    final rawUrl = _linkController.text.trim();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    if (rawUrl.isEmpty) {
-      _showMessage("Lütfen bir link gir.");
-      return;
-    }
+    String url = _linkController.text.trim();
+    if (url.isEmpty) return;
 
-    String url = rawUrl;
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      url = "https://$url";
-    }
+    final docRef =
+        FirebaseFirestore.instance.collection("users").doc(user.uid);
 
-    // Aynı link zaten kayıtlı mı?
-    final alreadyExists = _links.any(
-      (item) => item["platform"] == _selectedPlatform && item["url"] == url,
-    );
-
-    if (alreadyExists) {
-      _showMessage("Bu link zaten kayıtlı.");
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    _links.add({
-      "platform": _selectedPlatform,
-      "url": url,
+    await docRef.update({
+      "links": FieldValue.arrayUnion([
+        {"platform": _selectedPlatform, "url": url}
+      ])
     });
 
-    await _saveLinksToFirestore();
+    _linkController.clear();
+    setState(() {});
+  }
 
-    setState(() {
-      _isSaving = false;
-      _linkController.clear();
+  Future<void> _deleteLink(Map<String, dynamic> link) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final docRef =
+        FirebaseFirestore.instance.collection("users").doc(user.uid);
+
+    await docRef.update({
+      "links": FieldValue.arrayRemove([link])
     });
 
-    _showMessage("Link kaydedildi.");
+    setState(() {});
   }
 
-  Future<void> _deleteLink(int index) async {
-    setState(() {
-      _links.removeAt(index);
+  Future<void> _editLink(Map<String, dynamic> link, String newUrl) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final docRef =
+        FirebaseFirestore.instance.collection("users").doc(user.uid);
+
+    await docRef.update({
+      "links": FieldValue.arrayRemove([link])
     });
-    await _saveLinksToFirestore();
-    _showMessage("Link silindi.");
-  }
 
-  Future<void> _editLink(int index) async {
-    final current = _links[index];
+    await docRef.update({
+      "links": FieldValue.arrayUnion([
+        {"platform": link["platform"], "url": newUrl}
+      ])
+    });
 
-    final TextEditingController editController =
-        TextEditingController(text: current["url"] ?? "");
-
-    String platform = current["platform"] ?? "Instagram";
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Linki Düzenle"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: platform,
-                items: _platforms
-                    .map((p) =>
-                        DropdownMenuItem(value: p, child: Text(p)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    platform = value;
-                  }
-                },
-                decoration: const InputDecoration(
-                  labelText: "Platform",
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: editController,
-                decoration: const InputDecoration(
-                  labelText: "Link (https://...)",
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: const Text("Vazgeç"),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              child: const Text("Kaydet"),
-              onPressed: () async {
-                String newUrl = editController.text.trim();
-                if (newUrl.isEmpty) {
-                  _showMessage("Link boş olamaz.");
-                  return;
-                }
-                if (!newUrl.startsWith("http://") &&
-                    !newUrl.startsWith("https://")) {
-                  newUrl = "https://$newUrl";
-                }
-
-                setState(() {
-                  _links[index] = {
-                    "platform": platform,
-                    "url": newUrl,
-                  };
-                });
-
-                await _saveLinksToFirestore();
-                if (context.mounted) Navigator.pop(context);
-                _showMessage("Link güncellendi.");
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _openUrl(String url) async {
-    final Uri uri = Uri.parse(url);
-
-    if (!await canLaunchUrl(uri)) {
-      _showMessage("Bu link açılamadı.");
-      return;
-    }
-
-    await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final themeColor = const Color(0xFF6A4ECF);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3EFFC),
       appBar: AppBar(
@@ -235,180 +95,169 @@ class _LinksScreenState extends State<LinksScreen> {
         title: const Text(
           "Linklerim",
           style: TextStyle(
-            color: Colors.black87,
             fontWeight: FontWeight.bold,
+            color: Colors.black87,
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Sosyal medya veya web siteni ekle",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Platform seçimi
-            DropdownButtonFormField<String>(
-              value: _selectedPlatform,
-              items: _platforms
-                  .map((p) =>
-                      DropdownMenuItem<String>(value: p, child: Text(p)))
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedPlatform = value;
-                  });
+      body: user == null
+          ? const Center(child: Text("Kullanıcı bulunamadı"))
+          : StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection("users")
+                  .doc(user.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
                 }
-              },
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
 
-            const SizedBox(height: 16),
+                final userData =
+                    snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                final links = List<Map<String, dynamic>>.from(
+                    userData["links"] ?? []);
 
-            // Link alanı
-            TextField(
-              controller: _linkController,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: "Link (https://...)",
-                prefixIcon: const Icon(Icons.link),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _addLink,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A4ECF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: _isSaving
-                    ? const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      )
-                    : const Text(
-                        "Link Ekle",
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Sosyal medya veya web siteni ekle",
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Platform seçimi
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _selectedPlatform,
+                          underline: const SizedBox(),
+                          isExpanded: true,
+                          items: platforms
+                              .map((platform) => DropdownMenuItem(
+                                    value: platform,
+                                    child: Text(platform),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedPlatform = value!);
+                          },
                         ),
                       ),
-              ),
-            ),
 
-            const SizedBox(height: 28),
+                      const SizedBox(height: 16),
 
-            const Text(
-              "Kayıtlı Linkler",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            if (_links.isEmpty)
-              const Text(
-                "Henüz link eklemedin.",
-                style: TextStyle(color: Colors.black54),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _links.length,
-                itemBuilder: (context, index) {
-                  final item = _links[index];
-                  final platform = item["platform"] ?? "";
-                  final url = item["url"] ?? "";
-
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => _openUrl(url),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                      // Link girme kutusu
+                      TextField(
+                        controller: _linkController,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: "Link (https://...)",
+                          prefixIcon:
+                              const Icon(Icons.link, color: Colors.black54),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.link),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Link ekle butonu
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _addLink,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: themeColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          child: const Text(
+                            "Link Ekle",
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      const Text(
+                        "Kayıtlı Linkler",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (links.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 10),
+                          child: Text(
+                            "Henüz link eklemedin.",
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                        )
+                      else
+                        Column(
+                          children: links.map((link) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    platform,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                  const Icon(Icons.link, size: 22),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          link["platform"],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        Text(
+                                          link["url"],
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              color: Colors.black54),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    url,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black54,
-                                    ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: () => _deleteLink(link),
                                   ),
                                 ],
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _editLink(index),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _deleteLink(index),
-                            ),
-                          ],
+                            );
+                          }).toList(),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
