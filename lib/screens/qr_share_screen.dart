@@ -5,10 +5,7 @@ import 'package:share_plus/share_plus.dart';
 class QRShareScreen extends StatelessWidget {
   final String profileUrl;
 
-  const QRShareScreen({
-    super.key,
-    required this.profileUrl,
-  });
+  const QRShareScreen({super.key, required this.profileUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +14,7 @@ class QRShareScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
         title: const Text(
           "QR Paylaş",
           style: TextStyle(
@@ -24,86 +22,40 @@ class QRShareScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.black87),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              "Profilini QR kod ile paylaş",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
+            QrImageView(
+              data: profileUrl,
+              size: 220,
             ),
-            const SizedBox(height: 24),
-
-            // QR KOD KARTI
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: QrImageView(
-                data: profileUrl,
-                size: 220,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Alt tarafta linki göster
+            const SizedBox(height: 20),
             Text(
-              profileUrl,
+              "Bu QR kodu okutarak MySphere profilini açabilirler.",
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Paylaş butonu
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Share.share(
-                    profileUrl,
-                    subject: "MySphere profilim",
-                  );
-                },
-                icon: const Icon(Icons.share),
-                label: const Text(
-                  "Linki Paylaş",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A4ECF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
+              style: TextStyle(
+                color: Colors.grey.shade700,
               ),
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF6A4ECF),
+        onPressed: () {
+          // Profil linkini paylaş
+          Share.share(
+            profileUrl,
+            subject: "MySphere profilim",
+          );
+        },
+        label: const Text(
+          "Linki Paylaş",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        icon: const Icon(Icons.share),
       ),
     );
   }
