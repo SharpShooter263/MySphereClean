@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
 
-/// Tema seçimi için (Settings ekranında kullanıyorduk)
+/// Uygulama genelinde kullanılacak tema yöneticisi
+/// Settings ekranı buradaki değeri değiştirecek.
 final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.light);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 🔥 Firebase'i başlat
   await Firebase.initializeApp(
     options: const FirebaseOptions(
       apiKey: 'AIzaSyAF0kljgHTOtLPbGbfIxIcEwd_N3dAXkpQ',
@@ -20,6 +21,11 @@ Future<void> main() async {
       storageBucket: 'mysphereclean.firebasestorage.app',
     ),
   );
+
+  // 💾 Kayıtlı tema tercihini oku (varsayılan: light)
+  final prefs = await SharedPreferences.getInstance();
+  final isDark = prefs.getBool('isDarkMode') ?? false;
+  appThemeMode.value = isDark ? ThemeMode.dark : ThemeMode.light;
 
   runApp(const MyApp());
 }
@@ -38,37 +44,8 @@ class MyApp extends StatelessWidget {
           themeMode: mode,
           theme: _lightTheme,
           darkTheme: _darkTheme,
-          // ⬇️ Artık doğrudan LoginScreen değil, önce AuthGate açılıyor
-          home: const AuthGate(),
+          home: const LoginScreen(),
         );
-      },
-    );
-  }
-}
-
-/// Kullanıcı oturumunu kontrol eden küçük widget
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // Firebase bağlanırken / auth durumu alınırken
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        // Kullanıcı varsa → HomeScreen
-        if (snapshot.data != null) {
-          return const HomeScreen();
-        }
-
-        // Kullanıcı yoksa → LoginScreen
-        return const LoginScreen();
       },
     );
   }
