@@ -18,6 +18,10 @@ dependencies:
   firebase_core: ^3.10.0
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.0  # 📁 Profil fotoğrafları için
+
+  # 📸 Fotoğraf seçme
+  image_picker: ^1.1.2
 
   # 🌐 Link açma
   url_launcher: ^6.3.0
@@ -27,9 +31,6 @@ dependencies:
 
   # 📤 Paylaşım (link/QR paylaşma için)
   share_plus: ^10.0.0
-
-  # 💾 Küçük ayarları (dark mode vb.) cihazda saklamak için
-  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:
