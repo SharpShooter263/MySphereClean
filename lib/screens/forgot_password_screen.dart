@@ -25,6 +25,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _sendResetEmail() async {
+    if (_isSending) return;
+
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
@@ -39,7 +41,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _showMessage(
           "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.");
 
-      // İşlem bittiyse geri dönebiliriz
       if (mounted) Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       String msg = "Bir hata oluştu.";
@@ -78,7 +79,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              "Hesabınıza kayıtlı e-posta adresini yazın, size şifre sıfırlama bağlantısı gönderelim.",
+              "Hesabınıza kayıtlı e-posta adresini yazın, "
+              "size şifre sıfırlama bağlantısı gönderelim.",
             ),
             const SizedBox(height: 24),
             TextField(
@@ -101,9 +103,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: _isSending ? null : _sendResetEmail,
+                onPressed: _sendResetEmail, // her zaman aktif
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6A4ECF),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
