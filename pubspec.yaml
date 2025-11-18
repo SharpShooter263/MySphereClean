@@ -1,7 +1,7 @@
 name: mysphereclean
 description: MySphere profil yönetim uygulaması.
 
-publish_to: "none" # Uygulamayı pub.dev'e yüklemeyeceğiz
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -14,27 +14,30 @@ dependencies:
 
   cupertino_icons: ^1.0.6
 
-  # 🔥 Firebase paketleri
+  # Firebase paketleri
   firebase_core: ^3.10.0
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.0
 
-  # 🌐 Link açma
+  # Fotoğraf seçmek için
+  image_picker: ^1.1.1
+
+  # Link açma
   url_launcher: ^6.3.0
 
-  # 📷 QR kod üretme
+  # QR kod
   qr_flutter: ^4.1.0
 
-  # 📤 Paylaşım (link/QR paylaşma için)
+  # Paylaşım
   share_plus: ^10.0.0
 
-  # 💾 Tema / oturum gibi ayarları saklamak için
+  # Tema / oturum saklama
   shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^3.0.0
 
 flutter:
