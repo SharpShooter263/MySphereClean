@@ -1,10 +1,6 @@
-import 'dart:io';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,267 +10,230 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _aboutController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
 
-  String? _photoUrl;
-  bool _isLoading = true;
   bool _isSaving = false;
-  bool _isUploadingPhoto = false;
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final snap = await _firestore.collection('users').doc(user.uid).get();
+      final data = snap.data();
+
+      if (data != null) {
+        _nameController.text = (data['name'] ?? '') as String;
+        _bioController.text = (data['bio'] ?? '') as String;
+        setState(() {});
+      }
+    } catch (_) {
+      // İstersen buraya Snackbar ile hata mesajı koyabiliriz.
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final name = _nameController.text.trim();
+    final bio = _bioController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İsim boş olamaz.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'name': name,
+        'bio': bio,
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil güncellendi.')),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil güncellenemedi.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
-    _aboutController.dispose();
+    _bioController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadUserData() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser!;
-      _emailController.text = user.email ?? '';
-
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      final data = doc.data();
-
-      _nameController.text =
-          data?['name'] ?? user.displayName ?? '';
-      _aboutController.text = data?['about'] ?? '';
-      _photoUrl = data?['photoUrl'];
-
-      setState(() => _isLoading = false);
-    } catch (e) {
-      debugPrint('Kullanıcı verisi yüklenemedi: $e');
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil bilgileri yüklenemedi')),
-      );
-    }
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-      );
-
-      if (picked == null) return;
-
-      setState(() => _isUploadingPhoto = true);
-
-      final user = FirebaseAuth.instance.currentUser!;
-      final file = File(picked.path);
-
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profile_photos')
-          .child('${user.uid}.jpg');
-
-      final uploadTask = await ref.putFile(file);
-      final url = await uploadTask.ref.getDownloadURL();
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set(
-        {
-          'photoUrl': url,
-        },
-        SetOptions(merge: true),
-      );
-
-      setState(() {
-        _photoUrl = url;
-        _isUploadingPhoto = false;
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fotoğraf yüklendi')),
-      );
-    } catch (e, st) {
-      debugPrint('Fotoğraf yüklenemedi: $e\n$st');
-      if (!mounted) return;
-      setState(() => _isUploadingPhoto = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fotoğraf yüklenemedi: $e')),
-      );
-    }
-  }
-
-  Future<void> _saveProfile() async {
-    try {
-      setState(() => _isSaving = true);
-
-      final user = FirebaseAuth.instance.currentUser!;
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set(
-        {
-          'name': _nameController.text.trim(),
-          'about': _aboutController.text.trim(),
-          'photoUrl': _photoUrl,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      setState(() => _isSaving = false);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil kaydedildi')),
-      );
-    } catch (e) {
-      debugPrint('Profil kaydedilemedi: $e');
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil kaydedilemedi')),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = const Color(0xFF000000);
-    final cardColor = const Color(0xFF1E1E1E);
-    final purple = const Color(0xFF7C4DFF);
+    final user = _auth.currentUser;
+    final email = user?.email ?? '';
 
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: bgColor,
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: bgColor,
         elevation: 0,
-        title: const Text('Profilim'),
+        backgroundColor: Colors.transparent,
+        iconTheme: IconThemeData(color: colorScheme.onBackground),
+        title: Text(
+          'Profilim',
+          style: TextStyle(
+            color: colorScheme.onBackground,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
             Text(
               'Bilgilerini düzenle',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onBackground,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Avatar
+            Center(
+              child: CircleAvatar(
+                radius: 36,
+                backgroundColor:
+                    colorScheme.primaryContainer.withOpacity(0.9),
+                child: Text(
+                  _nameController.text.isNotEmpty
+                      ? _nameController.text[0].toUpperCase()
+                      : (email.isNotEmpty ? email[0].toUpperCase() : '?'),
+                  style: TextStyle(
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimaryContainer,
                   ),
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: _isUploadingPhoto ? null : _pickAndUploadImage,
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: const Color(0xFF3A3A3A),
-                    backgroundImage:
-                        _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                    child: _photoUrl == null
-                        ? const Text(
-                            'Ç',
-                            style: TextStyle(
-                              fontSize: 40,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: purple,
-                    child: const Icon(
-                      Icons.camera_alt,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-            if (_isUploadingPhoto)
-              const Padding(
-                padding: EdgeInsets.only(top: 8.0),
-                child: CircularProgressIndicator(),
-              ),
             const SizedBox(height: 24),
-            _buildTextField(
-              label: 'Ad Soyad',
+
+            // Ad Soyad
+            TextField(
               controller: _nameController,
-              icon: Icons.person,
-              cardColor: cardColor,
+              textInputAction: TextInputAction.next,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Ad Soyad',
+                labelStyle:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                filled: true,
+                fillColor: colorScheme.surface,
+                prefixIcon: Icon(Icons.person, color: colorScheme.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
-            _buildTextField(
-              label: 'E-posta',
-              controller: _emailController,
-              icon: Icons.email,
-              readOnly: true,
-              cardColor: cardColor,
+
+            // E-posta (salt okunur)
+            TextField(
+              enabled: false,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'E-posta',
+                hintText: email,
+                labelStyle:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                filled: true,
+                fillColor: colorScheme.surface,
+                prefixIcon: Icon(Icons.email, color: colorScheme.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
-            _buildTextField(
-              label: 'Hakkımda (isteğe bağlı)',
-              controller: _aboutController,
-              icon: Icons.info,
+
+            // Bio
+            TextField(
+              controller: _bioController,
               maxLines: 3,
-              cardColor: cardColor,
+              style: TextStyle(color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Hakkımda (isteğe bağlı)',
+                alignLabelWithHint: true,
+                labelStyle:
+                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
+                filled: true,
+                fillColor: colorScheme.surface,
+                prefixIcon:
+                    Icon(Icons.info_outline, color: colorScheme.primary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
+
+            // Kaydet butonu
             SizedBox(
               width: double.infinity,
+              height: 52,
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: purple,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: colorScheme.primary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(32),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 child: _isSaving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                    ? CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.onPrimary,
                         ),
                       )
-                    : const Text(
+                    : Text(
                         'Kaydet',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
+                          color: colorScheme.onPrimary,
                         ),
                       ),
               ),
@@ -282,50 +241,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required IconData icon,
-    required Color cardColor,
-    bool readOnly = false,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(icon, color: Colors.white70),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  readOnly: readOnly,
-                  maxLines: maxLines,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
