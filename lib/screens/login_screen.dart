@@ -28,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isLoading) return; // tekrar tıklamayı engelle
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -44,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
-      // Giriş başarılı → HomeScreen'e git
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -87,7 +87,6 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Başlık
               const Text(
                 'Giriş Yap',
                 textAlign: TextAlign.center,
@@ -163,30 +162,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 8),
 
-              // Giriş Yap butonu
-              ElevatedButton(
-                onPressed: _isLoading ? null : _login,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF6A4ECF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+              // Giriş Yap butonu (artık her zaman aktif, yazı hep beyaz)
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6A4ECF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        )
+                      : const Text(
+                          'Giriş Yap',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      )
-                    : const Text(
-                        'Giriş Yap',
-                        style: TextStyle(fontSize: 16),
-                      ),
               ),
               const SizedBox(height: 12),
 
-              // Kayıt ol linki
               TextButton(
                 onPressed: () {
                   Navigator.push(
