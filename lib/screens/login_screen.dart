@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'register_screen.dart';
-import 'home_screen.dart';
 import 'forgot_password_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,27 +13,39 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _obscurePassword = true;
   bool _isLoading = false;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  @override
+  void initState() {
+    super.initState();
+    _checkAlreadyLoggedIn();
+  }
 
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+  Future<void> _checkAlreadyLoggedIn() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      // Küçük bir delay verelim ki build tamamlanmış olsun
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    }
   }
 
   Future<void> _login() async {
-    if (_isLoading) return; // tekrar tıklamayı engelle
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      _showMessage("Lütfen e-posta ve şifreyi doldurun.");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen e-posta ve şifreyi girin.')),
+      );
       return;
     }
 
@@ -46,24 +58,29 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
-      String msg = "Giriş yapılamadı.";
-      if (e.code == "user-not-found") {
-        msg = "Bu e-posta ile kayıtlı kullanıcı yok.";
-      } else if (e.code == "wrong-password") {
-        msg = "Şifre hatalı.";
-      } else if (e.code == "invalid-email") {
-        msg = "Geçersiz e-posta adresi.";
+      String message = 'Giriş yapılamadı.';
+
+      if (e.code == 'user-not-found') {
+        message = 'Bu e-posta ile kayıtlı kullanıcı bulunamadı.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Şifre hatalı.';
       }
-      _showMessage(msg);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } catch (_) {
-      _showMessage("Beklenmeyen bir hata oluştu.");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bir hata oluştu, tekrar deneyin.')),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -76,22 +93,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final inputFill = isDark ? const Color(0xFF1E1E1E) : Colors.white;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              const SizedBox(height: 40),
+              Text(
+                'MySphere',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
                 'Giriş Yap',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
+                style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -104,11 +129,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.email_outlined),
-                  hintText: 'E-posta',
+                  labelText: 'E-posta',
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF181818) : Colors.white,
+                  fillColor: inputFill,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -118,39 +143,27 @@ class _LoginScreenState extends State<LoginScreen> {
               // Şifre
               TextField(
                 controller: _passwordController,
-                obscureText: _obscurePassword,
+                obscureText: true,
                 textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _login(),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                  hintText: 'Şifre',
+                  labelText: 'Şifre',
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF181818) : Colors.white,
+                  fillColor: inputFill,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
 
-              // Şifremi Unuttum
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    Navigator.push(
-                      context,
+                    Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const ForgotPasswordScreen(),
                       ),
@@ -160,19 +173,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
-              // Giriş Yap butonu (artık her zaman aktif, yazı hep beyaz)
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 54,
                 child: ElevatedButton(
-                  onPressed: _login,
+                  onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6A4ECF),
-                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(27),
                     ),
                   ),
                   child: _isLoading
@@ -183,22 +194,27 @@ class _LoginScreenState extends State<LoginScreen> {
                         )
                       : const Text(
                           'Giriş Yap',
-                          style: TextStyle(fontSize: 16),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),
-              const SizedBox(height: 12),
 
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RegisterScreen(),
-                    ),
-                  );
-                },
-                child: const Text('Hesabın yok mu? Kayıt ol'),
+              const SizedBox(height: 24),
+
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const RegisterScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('Hesabın yok mu? Kayıt ol'),
+                ),
               ),
             ],
           ),
