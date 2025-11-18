@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/login_screen.dart';
 
 /// Uygulama genelinde kullanılacak tema yöneticisi
-/// (Settings ekranından değeri değiştireceğiz)
+/// Settings ekranı buradaki değeri değiştirecek.
 final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.light);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🔥 Senin çalışan Firebase ayarların – hiçbirini değiştirmedim
+  // 🔥 Firebase'i başlat
   await Firebase.initializeApp(
     options: const FirebaseOptions(
       apiKey: 'AIzaSyAF0kljgHTOtLPbGbfIxIcEwd_N3dAXkpQ',
@@ -20,6 +21,11 @@ Future<void> main() async {
       storageBucket: 'mysphereclean.firebasestorage.app',
     ),
   );
+
+  // 💾 Kayıtlı tema tercihini oku (varsayılan: light)
+  final prefs = await SharedPreferences.getInstance();
+  final isDark = prefs.getBool('isDarkMode') ?? false;
+  appThemeMode.value = isDark ? ThemeMode.dark : ThemeMode.light;
 
   runApp(const MyApp());
 }
