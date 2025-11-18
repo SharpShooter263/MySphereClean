@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,9 +18,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _bioController = TextEditingController();
 
   bool _isSaving = false;
+  bool _isUploadingPhoto = false;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String? _photoUrl;
 
   @override
   void initState() {
@@ -35,10 +42,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (data != null) {
         _nameController.text = (data['name'] ?? '') as String;
         _bioController.text = (data['bio'] ?? '') as String;
+        _photoUrl = (data['photoUrl'] ?? '') as String?;
         setState(() {});
       }
     } catch (_) {
-      // İstersen buraya Snackbar ile hata mesajı koyabiliriz.
+      // istersen Snackbar ekleyebiliriz
+    }
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final picker = ImagePicker();
+    final XFile? picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+
+    if (picked == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+
+    try {
+      final file = File(picked.path);
+
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('user_photos')
+          .child('${user.uid}.jpg');
+
+      await ref.putFile(file);
+      final url = await ref.getDownloadURL();
+
+      await _firestore.collection('users').doc(user.uid).update({
+        'photoUrl': url,
+      });
+
+      setState(() {
+        _photoUrl = url;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fotoğraf yüklenemedi.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
     }
   }
 
@@ -62,20 +119,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _firestore.collection('users').doc(user.uid).update({
         'name': name,
         'bio': bio,
+        if (_photoUrl != null) 'photoUrl': _photoUrl,
       });
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil güncellendi.')),
-      );
-
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil güncellenemedi.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil güncellendi.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profil güncellenemedi.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -92,22 +150,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _auth.currentUser;
-    final email = user?.email ?? '';
-
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final email = _auth.currentUser?.email ?? '';
+
+    final inputFill = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+
+    final initialLetter = _nameController.text.isNotEmpty
+        ? _nameController.text[0].toUpperCase()
+        : (email.isNotEmpty ? email[0].toUpperCase() : '?');
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(color: colorScheme.onBackground),
+        iconTheme: IconThemeData(
+          color: isDark ? Colors.white : Colors.black87,
+        ),
         title: Text(
           'Profilim',
           style: TextStyle(
-            color: colorScheme.onBackground,
+            color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -119,30 +184,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Text(
               'Bilgilerini düzenle',
-              style: TextStyle(
-                fontSize: 24,
+              style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: colorScheme.onBackground,
               ),
             ),
             const SizedBox(height: 24),
 
-            // Avatar
+            // Avatar + değiştir
             Center(
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor:
-                    colorScheme.primaryContainer.withOpacity(0.9),
-                child: Text(
-                  _nameController.text.isNotEmpty
-                      ? _nameController.text[0].toUpperCase()
-                      : (email.isNotEmpty ? email[0].toUpperCase() : '?'),
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
+              child: Column(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor:
+                            theme.colorScheme.primary.withOpacity(0.2),
+                        backgroundImage: _photoUrl != null &&
+                                _photoUrl!.isNotEmpty
+                            ? NetworkImage(_photoUrl!)
+                            : null,
+                        child: (_photoUrl == null || _photoUrl!.isEmpty)
+                            ? Text(
+                                initialLetter,
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: InkWell(
+                          onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                          borderRadius: BorderRadius.circular(18),
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: theme.colorScheme.primary,
+                            child: _isUploadingPhoto
+                                ? const Padding(
+                                    padding: EdgeInsets.all(4.0),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor:
+                                          AlwaysStoppedAnimation(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.camera_alt,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Profil fotoğrafını değiştir',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -151,14 +259,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               controller: _nameController,
               textInputAction: TextInputAction.next,
-              style: TextStyle(color: colorScheme.onSurface),
               decoration: InputDecoration(
                 labelText: 'Ad Soyad',
-                labelStyle:
-                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
                 filled: true,
-                fillColor: colorScheme.surface,
-                prefixIcon: Icon(Icons.person, color: colorScheme.primary),
+                fillColor: inputFill,
+                prefixIcon: const Icon(Icons.person),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -170,15 +275,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // E-posta (salt okunur)
             TextField(
               enabled: false,
-              style: TextStyle(color: colorScheme.onSurface),
               decoration: InputDecoration(
                 labelText: 'E-posta',
                 hintText: email,
-                labelStyle:
-                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
                 filled: true,
-                fillColor: colorScheme.surface,
-                prefixIcon: Icon(Icons.email, color: colorScheme.primary),
+                fillColor: inputFill,
+                prefixIcon: const Icon(Icons.email),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -191,16 +293,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               controller: _bioController,
               maxLines: 3,
-              style: TextStyle(color: colorScheme.onSurface),
               decoration: InputDecoration(
                 labelText: 'Hakkımda (isteğe bağlı)',
                 alignLabelWithHint: true,
-                labelStyle:
-                    TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
                 filled: true,
-                fillColor: colorScheme.surface,
-                prefixIcon:
-                    Icon(Icons.info_outline, color: colorScheme.primary),
+                fillColor: inputFill,
+                prefixIcon: const Icon(Icons.info_outline),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -214,26 +312,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: _isSaving ? null : _saveProfile,
+                onPressed: (_isSaving || _isUploadingPhoto) ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
+                  backgroundColor: const Color(0xFF6A4ECF),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 child: _isSaving
-                    ? CircularProgressIndicator(
+                    ? const CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.onPrimary,
-                        ),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
                       )
-                    : Text(
+                    : const Text(
                         'Kaydet',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: colorScheme.onPrimary,
                         ),
                       ),
               ),
