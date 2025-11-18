@@ -28,6 +28,9 @@ dependencies:
   # 📤 Paylaşım (link/QR paylaşma için)
   share_plus: ^10.0.0
 
+  # 💾 Küçük ayarları (dark mode vb.) cihazda saklamak için
+  shared_preferences: ^2.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
