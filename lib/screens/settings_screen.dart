@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../main.dart'; // appThemeMode'a erişmek için
+import '../main.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,243 +12,181 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _isDarkMode = false;
-
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  bool _darkModeEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _isDarkMode = appThemeMode.value == ThemeMode.dark;
-    _loadPreferences();
+    _loadPrefs();
   }
 
-  Future<void> _loadPreferences() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
+      final isDark = prefs.getBool('isDarkMode') ?? false;
+      _darkModeEnabled = isDark;
+    });
 
-    try {
-      final snap = await _firestore.collection('users').doc(user.uid).get();
-      final data = snap.data() ?? {};
-
-      setState(() {
-        _notificationsEnabled =
-            (data['notificationsEnabled'] ?? true) as bool;
-        // Dark mode bilgisini Firestore'dan okumak istersen:
-        if (data.containsKey('darkMode')) {
-          _isDarkMode = data['darkMode'] as bool;
-          appThemeMode.value =
-              _isDarkMode ? ThemeMode.dark : ThemeMode.light;
-        }
-      });
-    } catch (_) {
-      // Sessiz geçiyoruz, istersen Snackbar eklenebilir
-    }
+    // Uygulama içindeki tema yöneticisini de senkronize et
+    appThemeMode.value =
+        _darkModeEnabled ? ThemeMode.dark : ThemeMode.light;
   }
 
-  Future<void> _savePreferences() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
+  Future<void> _setNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notificationsEnabled', value);
+    setState(() {
+      _notificationsEnabled = value;
+    });
+  }
 
-    try {
-      await _firestore.collection('users').doc(user.uid).set(
-        {
-          'notificationsEnabled': _notificationsEnabled,
-          'darkMode': _isDarkMode,
-        },
-        SetOptions(merge: true),
-      );
-    } catch (_) {
-      // Sessiz, istersen hata gösterilebilir
-    }
+  Future<void> _setDarkMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', value);
+
+    setState(() {
+      _darkModeEnabled = value;
+    });
+
+    // Uygulamanın temasını anında değiştir
+    appThemeMode.value = value ? ThemeMode.dark : ThemeMode.light;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final cardColor =
-        isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final textPrimary =
-        isDark ? Colors.white : Colors.black87;
-    final textSecondary =
-        isDark ? Colors.white70 : Colors.black54;
+    final cardColor = isDark ? const Color(0xFF151515) : Colors.white;
+    final subtitleColor =
+        isDark ? Colors.grey.shade400 : Colors.black54;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
-          'Ayarlar',
-          style: TextStyle(
-            color: textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text('Ayarlar'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tercihlerini düzenle',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: textPrimary,
-              ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'Tercihlerini düzenle',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 24),
+          ),
+          const SizedBox(height: 20),
 
-            // Bildirimler + Karanlık tema kartı
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  if (!isDark)
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.15),
-                      blurRadius: 8,
-                      spreadRadius: 1,
+          // Bildirimler & Dark Mode kartı
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: isDark
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.15),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
+            ),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Bildirimler',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                     ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // Bildirimler satırı
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Bildirimler',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Yeni bağlantı ve görüntüleme bildirimleri',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _notificationsEnabled,
-                        activeColor: const Color(0xFF6A4ECF),
-                        onChanged: (value) {
-                          setState(() {
-                            _notificationsEnabled = value;
-                          });
-                          _savePreferences();
-                        },
-                      ),
-                    ],
                   ),
-
-                  const Divider(height: 32),
-
-                  // Karanlık tema satırı
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Karanlık tema',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _isDarkMode
-                                  ? 'Karanlık tema aktif'
-                                  : 'Karanlık tema kapalı',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _isDarkMode,
-                        activeColor: const Color(0xFF6A4ECF),
-                        onChanged: (value) {
-                          setState(() {
-                            _isDarkMode = value;
-                          });
-
-                          // 🔑 Tüm uygulamanın temasını değiştir
-                          appThemeMode.value =
-                              value ? ThemeMode.dark : ThemeMode.light;
-
-                          _savePreferences();
-                        },
-                      ),
-                    ],
+                  subtitle: Text(
+                    'Yeni bağlantı ve görüntüleme bildirimleri',
+                    style: TextStyle(color: subtitleColor),
                   ),
-                ],
-              ),
+                  value: _notificationsEnabled,
+                  activeColor: cs.primary,
+                  onChanged: (val) => _setNotifications(val),
+                ),
+                const Divider(height: 24),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Karanlık tema',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _darkModeEnabled
+                        ? 'Karanlık tema aktif'
+                        : 'Açık tema aktif',
+                    style: TextStyle(color: subtitleColor),
+                  ),
+                  value: _darkModeEnabled,
+                  activeColor: cs.primary,
+                  onChanged: (val) => _setDarkMode(val),
+                ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
-            // Hakkında
-            Row(
+          // Hakkında kartı
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: isDark
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.15),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
+            ),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: textSecondary),
+                Icon(
+                  Icons.info_outline,
+                  color: cs.primary,
+                ),
                 const SizedBox(width: 12),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Hakkında',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         'MySphere profil yönetim uygulaması',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: textSecondary,
-                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
