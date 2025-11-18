@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -14,321 +14,266 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _bioController = TextEditingController();
-
-  bool _isSaving = false;
-  bool _isUploadingPhoto = false;
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _aboutController = TextEditingController();
 
   String? _photoUrl;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isUploadingPhoto = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
-  }
-
-  Future<void> _loadUser() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    try {
-      final snap = await _firestore.collection('users').doc(user.uid).get();
-      final data = snap.data();
-
-      if (data != null) {
-        _nameController.text = (data['name'] ?? '') as String;
-        _bioController.text = (data['bio'] ?? '') as String;
-        _photoUrl = (data['photoUrl'] ?? '') as String?;
-        setState(() {});
-      }
-    } catch (_) {
-      // istersen Snackbar ekleyebiliriz
-    }
-  }
-
-  Future<void> _pickAndUploadPhoto() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    final picker = ImagePicker();
-    final XFile? picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-
-    if (picked == null) return;
-
-    setState(() => _isUploadingPhoto = true);
-
-    try {
-      final file = File(picked.path);
-
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('user_photos')
-          .child('${user.uid}.jpg');
-
-      await ref.putFile(file);
-      final url = await ref.getDownloadURL();
-
-      await _firestore.collection('users').doc(user.uid).update({
-        'photoUrl': url,
-      });
-
-      setState(() {
-        _photoUrl = url;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fotoğraf yüklenemedi.')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploadingPhoto = false);
-      }
-    }
-  }
-
-  Future<void> _saveProfile() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    final name = _nameController.text.trim();
-    final bio = _bioController.text.trim();
-
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('İsim boş olamaz.')),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      await _firestore.collection('users').doc(user.uid).update({
-        'name': name,
-        'bio': bio,
-        if (_photoUrl != null) 'photoUrl': _photoUrl,
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil güncellendi.')),
-        );
-        Navigator.pop(context);
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil güncellenemedi.')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
-    }
+    _loadUserData();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _bioController.dispose();
+    _emailController.dispose();
+    _aboutController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser!;
+      _emailController.text = user.email ?? '';
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      final data = doc.data();
+
+      _nameController.text =
+          data?['name'] ?? user.displayName ?? '';
+      _aboutController.text = data?['about'] ?? '';
+      _photoUrl = data?['photoUrl'];
+
+      setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint('Kullanıcı verisi yüklenemedi: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil bilgileri yüklenemedi')),
+      );
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+
+      if (picked == null) return;
+
+      setState(() => _isUploadingPhoto = true);
+
+      final user = FirebaseAuth.instance.currentUser!;
+      final file = File(picked.path);
+
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_photos')
+          .child('${user.uid}.jpg');
+
+      final uploadTask = await ref.putFile(file);
+      final url = await uploadTask.ref.getDownloadURL();
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(
+        {
+          'photoUrl': url,
+        },
+        SetOptions(merge: true),
+      );
+
+      setState(() {
+        _photoUrl = url;
+        _isUploadingPhoto = false;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fotoğraf yüklendi')),
+      );
+    } catch (e, st) {
+      debugPrint('Fotoğraf yüklenemedi: $e\n$st');
+      if (!mounted) return;
+      setState(() => _isUploadingPhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fotoğraf yüklenemedi: $e')),
+      );
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    try {
+      setState(() => _isSaving = true);
+
+      final user = FirebaseAuth.instance.currentUser!;
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(
+        {
+          'name': _nameController.text.trim(),
+          'about': _aboutController.text.trim(),
+          'photoUrl': _photoUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      setState(() => _isSaving = false);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil kaydedildi')),
+      );
+    } catch (e) {
+      debugPrint('Profil kaydedilemedi: $e');
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil kaydedilemedi')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final bgColor = const Color(0xFF000000);
+    final cardColor = const Color(0xFF1E1E1E);
+    final purple = const Color(0xFF7C4DFF);
 
-    final email = _auth.currentUser?.email ?? '';
-
-    final inputFill = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-
-    final initialLetter = _nameController.text.isNotEmpty
-        ? _nameController.text[0].toUpperCase()
-        : (email.isNotEmpty ? email[0].toUpperCase() : '?');
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: bgColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: bgColor,
       appBar: AppBar(
+        backgroundColor: bgColor,
         elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: IconThemeData(
-          color: isDark ? Colors.white : Colors.black87,
-        ),
-        title: Text(
-          'Profilim',
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Profilim'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            const SizedBox(height: 8),
             Text(
               'Bilgilerini düzenle',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 24),
-
-            // Avatar + değiştir
-            Center(
-              child: Column(
+            GestureDetector(
+              onTap: _isUploadingPhoto ? null : _pickAndUploadImage,
+              child: Stack(
+                alignment: Alignment.bottomRight,
                 children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor:
-                            theme.colorScheme.primary.withOpacity(0.2),
-                        backgroundImage: _photoUrl != null &&
-                                _photoUrl!.isNotEmpty
-                            ? NetworkImage(_photoUrl!)
-                            : null,
-                        child: (_photoUrl == null || _photoUrl!.isEmpty)
-                            ? Text(
-                                initialLetter,
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: InkWell(
-                          onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
-                          borderRadius: BorderRadius.circular(18),
-                          child: CircleAvatar(
-                            radius: 16,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: _isUploadingPhoto
-                                ? const Padding(
-                                    padding: EdgeInsets.all(4.0),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation(Colors.white),
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.camera_alt,
-                                    size: 18,
-                                    color: Colors.white,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  CircleAvatar(
+                    radius: 48,
+                    backgroundColor: const Color(0xFF3A3A3A),
+                    backgroundImage:
+                        _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                    child: _photoUrl == null
+                        ? const Text(
+                            'Ç',
+                            style: TextStyle(
+                              fontSize: 40,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Profil fotoğrafını değiştir',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: purple,
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 18,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
+            if (_isUploadingPhoto)
+              const Padding(
+                padding: EdgeInsets.only(top: 8.0),
+                child: CircularProgressIndicator(),
+              ),
             const SizedBox(height: 24),
-
-            // Ad Soyad
-            TextField(
+            _buildTextField(
+              label: 'Ad Soyad',
               controller: _nameController,
-              textInputAction: TextInputAction.next,
-              decoration: InputDecoration(
-                labelText: 'Ad Soyad',
-                filled: true,
-                fillColor: inputFill,
-                prefixIcon: const Icon(Icons.person),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              icon: Icons.person,
+              cardColor: cardColor,
             ),
             const SizedBox(height: 16),
-
-            // E-posta (salt okunur)
-            TextField(
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'E-posta',
-                hintText: email,
-                filled: true,
-                fillColor: inputFill,
-                prefixIcon: const Icon(Icons.email),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            _buildTextField(
+              label: 'E-posta',
+              controller: _emailController,
+              icon: Icons.email,
+              readOnly: true,
+              cardColor: cardColor,
             ),
             const SizedBox(height: 16),
-
-            // Bio
-            TextField(
-              controller: _bioController,
+            _buildTextField(
+              label: 'Hakkımda (isteğe bağlı)',
+              controller: _aboutController,
+              icon: Icons.info,
               maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Hakkımda (isteğe bağlı)',
-                alignLabelWithHint: true,
-                filled: true,
-                fillColor: inputFill,
-                prefixIcon: const Icon(Icons.info_outline),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              cardColor: cardColor,
             ),
-            const SizedBox(height: 28),
-
-            // Kaydet butonu
+            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              height: 52,
               child: ElevatedButton(
-                onPressed: (_isSaving || _isUploadingPhoto) ? null : _saveProfile,
+                onPressed: _isSaving ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A4ECF),
+                  backgroundColor: purple,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(32),
                   ),
                 ),
                 child: _isSaving
-                    ? const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
                       )
                     : const Text(
                         'Kaydet',
                         style: TextStyle(
-                          fontSize: 18,
+                          color: Colors.white,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -337,6 +282,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required Color cardColor,
+    bool readOnly = false,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white70),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  readOnly: readOnly,
+                  maxLines: maxLines,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
