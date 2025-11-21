@@ -20,9 +20,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final User? user = _auth.currentUser;
 
-    // Kullanıcı yoksa Login'e at
+    // Kullanıcı yoksa Login'e gönder
     if (user == null) {
       return const LoginScreen();
     }
@@ -33,14 +35,15 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(user.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        // Veri yüklenirken loader
+        // Yükleniyor durumu
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFF3EFFC),
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            backgroundColor: colorScheme.background,
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
+        // Doküman yoksa güvenlik amaçlı Login'e gönder
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return const LoginScreen();
         }
@@ -49,39 +52,60 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final String name = (data['name'] ?? '') as String;
         final String email = (data['email'] ?? user.email ?? '') as String;
+        final List<dynamic> links =
+            (data['links'] as List<dynamic>?) ?? const [];
 
-        final List<dynamic> links = (data['links'] as List<dynamic>?) ?? [];
         final int views = (data['views'] ?? 0) as int;
         final int shares = (data['shares'] ?? 0) as int;
         final int connectionsCount = links.length;
 
-        // 🔗 Her kullanıcı için herkese açık profil linki (ileride hosting / domain bağlayacağız)
+        // 🔗 Herkese açık profil linki (ileride gerçek domain ile güncelleriz)
         final String profileUrl =
-            'https://mysphereclean.web.app/u/${user.uid}';
+            'https://mysphere.app/profile/${user.uid}';
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF3EFFC),
+          backgroundColor: colorScheme.background,
           appBar: AppBar(
             elevation: 0,
             backgroundColor: Colors.transparent,
-            title: const Text(
+            title: Text(
               "MySphere",
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: colorScheme.onBackground,
               ),
             ),
             actions: [
+              // Sağ üstte Ayarlar ikonu
               IconButton(
-                icon: const Icon(Icons.logout, color: Colors.black87),
+                icon: Icon(
+                  Icons.settings,
+                  color: colorScheme.onBackground,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+              // Çıkış ikonu
+              IconButton(
+                icon: Icon(
+                  Icons.logout,
+                  color: colorScheme.onBackground,
+                ),
                 onPressed: () async {
                   await _auth.signOut();
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
+                        builder: (_) => const LoginScreen(),
+                      ),
                       (route) => false,
                     );
                   }
@@ -100,225 +124,262 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ÜST BÖLÜM
-                      Container,
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const CircleAvatar(
-                            radius: 28,
-                            backgroundColor: Color(0xFFDCD4FF),
-                            child: Icon(
-                              Icons.person,
-                              size: 32,
-                              color: Color(0xFF6A4ECF),
+                      // ========= ÜST KART =========
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(
+                                theme.brightness == Brightness.light
+                                    ? 0.06
+                                    : 0.3,
+                              ),
+                              blurRadius: 10,
+                              spreadRadius: 1,
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Hoş geldin 👋",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 28,
+                              backgroundColor: colorScheme.primaryContainer,
+                              child: Icon(
+                                Icons.person,
+                                size: 32,
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Hoş geldin 👋",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurface,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                name.isNotEmpty ? name : email,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.black54,
+                                const SizedBox(height: 4),
+                                Text(
+                                  name.isNotEmpty ? name : email,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: colorScheme.onSurface
+                                        .withOpacity(0.7),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    const Text(
-                      "Hızlı İşlemler",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    // KUTULAR
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      children: [
-                        buildMenuCard(
-                          icon: Icons.person,
-                          title: "Profilim",
-                          subtitle: "Bilgilerini düzenle",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ProfileScreen(),
-                              ),
-                            );
-                          },
+                              ],
+                            ),
+                          ],
                         ),
-                        buildMenuCard(
-                          icon: Icons.link,
-                          title: "Linklerim",
-                          subtitle: "Sosyal medya ekle",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LinksScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        buildMenuCard(
-                          icon: Icons.qr_code,
-                          title: "QR Paylaş",
-                          subtitle: "Profilini göster",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    QRShareScreen(profileUrl: profileUrl),
-                              ),
-                            );
-                          },
-                        ),
-                        buildMenuCard(
-                          icon: Icons.settings,
-                          title: "Ayarlar",
-                          subtitle: "Tercihleri düzenle",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      "Aktivite Özeti",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
 
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 30),
 
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          )
-                        ],
+                      // ========= HIZLI İŞLEMLER =========
+                      Text(
+                        "Hızlı İşlemler",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onBackground,
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      const SizedBox(height: 15),
+
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
                         children: [
-                          summaryItem(
-                            connectionsCount.toString(),
-                            "Bağlantı",
+                          buildMenuCard(
+                            context: context,
+                            icon: Icons.person,
+                            title: "Profilim",
+                            subtitle: "Bilgilerini düzenle",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ProfileScreen(),
+                                ),
+                              );
+                            },
                           ),
-                          summaryItem(
-                            views.toString(),
-                            "Görüntüleme",
+                          buildMenuCard(
+                            context: context,
+                            icon: Icons.link,
+                            title: "Linklerim",
+                            subtitle: "Sosyal medya ekle",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LinksScreen(),
+                                ),
+                              );
+                            },
                           ),
-                          summaryItem(
-                            shares.toString(),
-                            "Paylaşım",
+                          buildMenuCard(
+                            context: context,
+                            icon: Icons.qr_code,
+                            title: "QR Paylaş",
+                            subtitle: "Profilini göster",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => QRShareScreen(
+                                    profileUrl: profileUrl,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          buildMenuCard(
+                            context: context,
+                            icon: Icons.settings,
+                            title: "Ayarlar",
+                            subtitle: "Tercihleri düzenle",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SettingsScreen(),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 20),
+
+                      // ========= AKTİVİTE ÖZETİ =========
+                      Text(
+                        "Aktivite Özeti",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onBackground,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(
+                                theme.brightness == Brightness.light
+                                    ? 0.06
+                                    : 0.3,
+                              ),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            summaryItem(
+                              context,
+                              connectionsCount.toString(),
+                              "Bağlantı",
+                            ),
+                            summaryItem(
+                              context,
+                              views.toString(),
+                              "Görüntüleme",
+                            ),
+                            summaryItem(
+                              context,
+                              shares.toString(),
+                              "Paylaşım",
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
   }
 
-  static Widget summaryItem(String number, String title) {
+  // --------- Alt widget'lar ---------
+
+  static Widget summaryItem(
+    BuildContext context,
+    String number,
+    String title,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: [
         Text(
           number,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           title,
-          style: const TextStyle(color: Colors.black54),
+          style: TextStyle(
+            color: colorScheme.onSurface.withOpacity(0.7),
+          ),
         ),
       ],
     );
   }
 
   Widget buildMenuCard({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(22),
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.black.withOpacity(
+                theme.brightness == Brightness.light ? 0.06 : 0.3,
+              ),
               blurRadius: 10,
               spreadRadius: 1,
-            )
+            ),
           ],
         ),
         child: Padding(
@@ -326,20 +387,27 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 32, color: const Color(0xFF6A4ECF)),
+              Icon(
+                icon,
+                size: 32,
+                color: colorScheme.primary,
+              ),
               const SizedBox(height: 12),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54),
+                style: TextStyle(
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
             ],
           ),
