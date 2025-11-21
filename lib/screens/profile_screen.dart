@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,9 +18,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _bioController = TextEditingController();
 
   bool _isSaving = false;
+  bool _isUploadingImage = false;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  final ImagePicker _picker = ImagePicker();
+  String? _photoUrl;
 
   @override
   void initState() {
@@ -35,10 +43,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (data != null) {
         _nameController.text = (data['name'] ?? '') as String;
         _bioController.text = (data['bio'] ?? '') as String;
+        _photoUrl = data['photoUrl'] as String?;
         setState(() {});
       }
     } catch (_) {
       // İstersen buraya Snackbar ile hata mesajı koyabiliriz.
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+
+      if (pickedFile == null) {
+        return; // kullanıcı iptal etti
+      }
+
+      setState(() {
+        _isUploadingImage = true;
+      });
+
+      final file = File(pickedFile.path);
+
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_pics')
+          .child('${user.uid}.jpg');
+
+      await storageRef.putFile(file);
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      await _firestore.collection('users').doc(user.uid).update({
+        'photoUrl': downloadUrl,
+      });
+
+      if (!mounted) return;
+
+      setState(() {
+        _photoUrl = downloadUrl;
+        _isUploadingImage = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profil fotoğrafı güncellendi.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isUploadingImage = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fotoğraf yüklenirken bir hata oluştu.')),
+      );
     }
   }
 
@@ -127,22 +189,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Avatar
+            // Avatar + fotoğraf değiştirme
             Center(
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor:
-                    colorScheme.primaryContainer.withOpacity(0.9),
-                child: Text(
-                  _nameController.text.isNotEmpty
-                      ? _nameController.text[0].toUpperCase()
-                      : (email.isNotEmpty ? email[0].toUpperCase() : '?'),
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _isUploadingImage ? null : _pickAndUploadImage,
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 36,
+                          backgroundColor:
+                              colorScheme.primaryContainer.withOpacity(0.9),
+                          backgroundImage: _photoUrl != null
+                              ? NetworkImage(_photoUrl!)
+                              : null,
+                          child: _photoUrl == null
+                              ? Text(
+                                  _nameController.text.isNotEmpty
+                                      ? _nameController.text[0].toUpperCase()
+                                      : (email.isNotEmpty
+                                          ? email[0].toUpperCase()
+                                          : '?'),
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onPrimaryContainer,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: colorScheme.primary,
+                            child: Icon(
+                              Icons.camera_alt_outlined,
+                              size: 16,
+                              color: colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  if (_isUploadingImage)
+                    Text(
+                      'Fotoğraf yükleniyor...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onBackground.withOpacity(0.7),
+                      ),
+                    )
+                  else
+                    Text(
+                      'Fotoğrafı değiştir',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
